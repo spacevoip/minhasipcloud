@@ -1,0 +1,15 @@
+/* Correção temporária para campos do modal Renovar Plano */
+.modal-field {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 0.75rem 1rem !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.modal-container * {
+  box-sizing: border-box !important;
+}

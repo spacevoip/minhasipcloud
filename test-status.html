@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Status Realtime</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .agent { 
+            padding: 10px; 
+            margin: 5px 0; 
+            border: 1px solid #ccc; 
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status { 
+            padding: 5px 10px; 
+            border-radius: 3px; 
+            color: white; 
+            font-weight: bold;
+        }
+        .online { background-color: #10b981; }
+        .offline { background-color: #6b7280; }
+        .busy { background-color: #f59e0b; }
+        .away { background-color: #8b5cf6; }
+        #logs { 
+            background: #f3f4f6; 
+            padding: 10px; 
+            border-radius: 5px; 
+            height: 300px; 
+            overflow-y: auto; 
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔴 Teste Status Realtime - Sistema PABX</h1>
+    
+    <div>
+        <button onclick="conectarSupabase()">🔌 Conectar Supabase</button>
+        <button onclick="testarFallback()">🔄 Testar Fallback</button>
+        <button onclick="limparLogs()">🗑️ Limpar Logs</button>
+    </div>
+
+    <h2>📊 Agentes</h2>
+    <div id="agents"></div>
+
+    <h2>📝 Logs</h2>
+    <div id="logs"></div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://db.minhasip.cloud';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU2MzMyMDAwLCJleHAiOjE5MTQwOTg0MDB9.vIiIgvpXc1MPG7skoG1w3eYDQbWY-BL6CDJvAzwl6SA';
+        
+        let supabase;
+        let channel;
+        let agents = {};
+
+        function log(message) {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${time}] ${message}<br>`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+
+        function updateAgentDisplay() {
+            const agentsDiv = document.getElementById('agents');
+            agentsDiv.innerHTML = '';
+            
+            Object.values(agents).forEach(agent => {
+                const div = document.createElement('div');
+                div.className = 'agent';
+                div.innerHTML = `
+                    <span><strong>${agent.name}</strong> (${agent.ramal})</span>
+                    <span class="status ${agent.status}">${agent.status.toUpperCase()}</span>
+                `;
+                agentsDiv.appendChild(div);
+            });
+        }
+
+        function conectarSupabase() {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                log('✅ Cliente Supabase criado');
+
+                // Carregar agentes iniciais
+                carregarAgentesIniciais();
+
+                // Conectar realtime
+                channel = supabase
+                    .channel('agents-test')
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'agentes_pabx',
+                            filter: 'user_id=eq.550e8400-e29b-41d4-a716-446655440001'
+                        },
+                        (payload) => {
+                            log(`🔴 REALTIME UPDATE: ${JSON.stringify(payload.new)}`);
+                            
+                            const agent = payload.new;
+                            agents[agent.ramal] = {
+                                id: agent.id,
+                                ramal: agent.ramal,
+                                name: agent.agente_name,
+                                status: agent.status_sip || 'offline'
+                            };
+                            
+                            updateAgentDisplay();
+                        }
+                    )
+                    .subscribe((status) => {
+                        log(`📡 Supabase status: ${status}`);
+                        if (status === 'SUBSCRIBED') {
+                            log('✅ Realtime conectado com sucesso!');
+                        }
+                    });
+
+            } catch (error) {
+                log(`❌ Erro ao conectar Supabase: ${error.message}`);
+            }
+        }
+
+        async function carregarAgentesIniciais() {
+            try {
+                log('📊 Carregando agentes iniciais...');
+                
+                // Tentar carregar agentes diretamente
+
+                const { data, error } = await supabase
+                    .from('agentes_pabx')
+                    .select('id, ramal, agente_name, status_sip')
+                    .eq('user_id', '550e8400-e29b-41d4-a716-446655440001')
+                    .limit(10);
+
+                if (error) {
+                    log(`❌ Erro ao carregar agentes: ${error.message}`);
+                    return;
+                }
+
+                log(`✅ ${data.length} agentes carregados`);
+                
+                data.forEach(agent => {
+                    agents[agent.ramal] = {
+                        id: agent.id,
+                        ramal: agent.ramal,
+                        name: agent.agente_name,
+                        status: agent.status_sip || 'offline'
+                    };
+                });
+
+                updateAgentDisplay();
+
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`);
+            }
+        }
+
+        async function testarFallback() {
+            try {
+                log('🔄 Testando fallback via API...');
+                
+                const response = await fetch('http://localhost:3001/api/extension-status/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        extensions: Object.keys(agents)
+                    })
+                });
+
+                if (!response.ok) {
+                    log(`❌ Erro na API: ${response.status}`);
+                    return;
+                }
+
+                const data = await response.json();
+                log(`✅ Fallback response: ${JSON.stringify(data)}`);
+
+            } catch (error) {
+                log(`❌ Erro no fallback: ${error.message}`);
+            }
+        }
+
+        function limparLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        // Auto-conectar ao carregar
+        window.onload = () => {
+            log('🚀 Página carregada, conectando...');
+            conectarSupabase();
+        };
+    </script>
+</body>
+</html>

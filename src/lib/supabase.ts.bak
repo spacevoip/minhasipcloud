@@ -1,0 +1,137 @@
+// =====================================================
+// SUPABASE CLIENT - Configuração do Cliente Supabase
+// =====================================================
+
+import { createClient } from '@supabase/supabase-js';
+
+// Configurações do Supabase - CREDENCIAIS CORRETAS
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://db.minhasip.cloud';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU2MzMyMDAwLCJleHAiOjE5MTQwOTg0MDB9.vIiIgvpXc1MPG7skoG1w3eYDQbWY-BL6CDJvAzwl6SA';
+
+// Validação das variáveis de ambiente
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  console.warn('⚠️ NEXT_PUBLIC_SUPABASE_URL não definida, usando valor padrão');
+}
+
+if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  console.warn('⚠️ NEXT_PUBLIC_SUPABASE_ANON_KEY não definida, usando valor padrão');
+}
+
+// Criar cliente Supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'pabx-system@1.0.0'
+    }
+  }
+});
+
+// Tipos para as tabelas do banco
+export interface UserPabx {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin' | 'collaborator' | 'reseller';
+  credits: number;
+  plan_id?: string;
+  plan_expires_at?: string;
+  plan_activated_at?: string;
+  plan_status?: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login_at?: string;
+}
+
+export interface PlanPabx {
+  id: string;
+  name: string;
+  price: number;
+  max_agents: number;
+  period_days: number;
+  features: string[];
+  description: string;
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+}
+
+// Utilitários para trabalhar com Supabase
+export class SupabaseUtils {
+  /**
+   * Verificar conexão com Supabase
+   */
+  static async testConnection(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('users_pabx')
+        .select('count')
+        .limit(1);
+      
+      return !error;
+    } catch (error) {
+      console.error('❌ Erro ao testar conexão Supabase:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Formatar erro do Supabase para exibição
+   */
+  static formatError(error: any): string {
+    if (!error) return 'Erro desconhecido';
+    
+    if (error.message) {
+      return error.message;
+    }
+    
+    if (typeof error === 'string') {
+      return error;
+    }
+    
+    return 'Erro interno do servidor';
+  }
+
+  /**
+   * Verificar se tabela existe
+   */
+  static async tableExists(tableName: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from(tableName)
+        .select('*')
+        .limit(1);
+      
+      return !error || error.code !== 'PGRST106';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Executar query raw SQL via RPC
+   */
+  static async executeRPC(functionName: string, params: any = {}): Promise<any> {
+    try {
+      const { data, error } = await supabase.rpc(functionName, params);
+      
+      if (error) {
+        throw new Error(this.formatError(error));
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`❌ Erro ao executar RPC ${functionName}:`, error);
+      throw error;
+    }
+  }
+}
+
+export default supabase;

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  <!-- Anti-SPAM: shield + block symbol -->
+  <g transform="translate(192,128)">
+    <path d="M320 64c120 0 240 62 240 62v208c0 160-144 272-240 334-96-62-240-174-240-334V126s120-62 240-62z" fill="url(#sg)"/>
+    <circle cx="320" cy="264" r="140" fill="#fff" fill-opacity="0.15"/>
+    <g transform="translate(320,264)">
+      <circle r="92" fill="#fff" fill-opacity="0.95"/>
+      <rect x="-52" y="-16" width="104" height="32" rx="16" fill="#EF4444"/>
+    </g>
+  </g>
+</svg>

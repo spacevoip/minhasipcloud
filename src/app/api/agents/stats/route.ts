@@ -1,0 +1,23 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+
+function buildHeaders(req: NextRequest) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  const auth = req.headers.get('authorization');
+  if (auth) headers['Authorization'] = auth;
+  return headers;
+}
+
+export async function GET(req: NextRequest) {
+  const target = `${BACKEND_URL}/api/agents/stats`;
+  const res = await fetch(target, {
+    method: 'GET',
+    headers: buildHeaders(req),
+    cache: 'no-store'
+  });
+  const text = await res.text();
+  return new NextResponse(text, { status: res.status, headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' } });
+}

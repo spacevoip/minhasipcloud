@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <!-- Premium routes: layered smooth paths with a badge/star of quality -->
+  <g transform="translate(112,200)">
+    <path d="M0 260 C 180 120, 440 120, 620 260 S 940 400, 800 520" stroke="url(#line)" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <path d="M0 320 C 220 180, 420 220, 620 320 S 960 460, 780 600" stroke="url(#line)" stroke-width="10" stroke-linecap="round" opacity=".7" fill="none"/>
+    <path d="M0 380 C 160 260, 420 300, 640 380 S 980 520, 780 660" stroke="url(#line)" stroke-width="6" stroke-linecap="round" opacity=".5" fill="none"/>
+    <!-- Quality badge -->
+    <g transform="translate(680,120)">
+      <circle cx="0" cy="0" r="64" fill="url(#rg)"/>
+      <path d="M0 -34 l10 22 24 4 -18 16 5 24 -21 -12 -21 12 5 -24 -18 -16 24 -4z" fill="#fff"/>
+    </g>
+  </g>
+</svg>

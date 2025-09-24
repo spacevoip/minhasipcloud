@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>📞 WebRTC SIP – Cliente</title>
+  <script src="libs/jssip.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 32px auto; }
+    .row { display:flex; gap:8px; margin: 8px 0; flex-wrap: wrap; }
+    input, button, select { padding:10px; font-size:16px; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    #panel { border:1px solid #ddd; border-radius:10px; padding:12px; }
+    #status { font-weight:600; }
+    #timer { font-variant-numeric: tabular-nums; font-weight:600; }
+    #log { height:220px; overflow:auto; background:#0b1020; color:#e9eefb; padding:10px; border-radius:8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef; margin-left:8px; }
+  </style>
+</head>
+<body>
+  <h2>🌐 WebRTC SIP Client</h2>
+
+  <div id="panel">
+    <div class="row">
+      <label>Domínio/Proxy (WSS):</label>
+      <input id="wss" value="wss://minhasip.cloud:8089/ws" style="flex:1" />
+    </div>
+    <div class="row">
+      <label>Usuário SIP:</label>
+      <input id="user" value="1001" style="width:140px" />
+      <label>Domínio:</label>
+      <input id="domain" value="minhasip.cloud" style="flex:1" />
+    </div>
+    <div class="row">
+      <label>Senha:</label>
+      <input id="pass" type="password" value="senha1001" style="flex:1" />
+    </div>
+
+    <div class="row">
+      <button id="connectBtn">🔌 Conectar & Registrar</button>
+      <button id="disconnectBtn" disabled>⛔ Desconectar</button>
+      <span id="status">Status: Desconectado</span>
+      <span id="timer" class="pill">00:00</span>
+    </div>
+
+    <div class="row">
+      <input id="target" placeholder="Destino (ex: 1002 ou 5511...)" style="flex:1" />
+      <button id="callBtn" disabled>📞 Ligar</button>
+      <button id="answerBtn" disabled>✅ Atender</button>
+      <button id="hangupBtn" disabled>🔴 Desligar</button>
+      <button id="muteBtn" disabled>🔇 Mutar</button>
+    </div>
+  </div>
+
+  <h3>📜 Logs</h3>
+  <div id="log"></div>
+
+  <!-- Áudio remoto -->
+  <audio id="remoteAudio" autoplay playsinline></audio>
+
+  <script>
+    // ======== estado =========
+    let ua = null;
+    let session = null;
+    let callTimerId = null;
+    let callStartMs = null;
+    let isMuted = false;
+
+    const el = (id) => document.getElementById(id);
+    const logBox = el('log');
+    const statusEl = el('status');
+    const timerEl = el('timer');
+
+    function uiState(s) {
+      // s: idle | ws | registered | ringing | incall | ended
+      const map = {
+        idle:    { connect:true, disconnect:false, call:false, answer:false, hangup:false, mute:false },
+        ws:      { connect:false, disconnect:true, call:false, answer:false, hangup:false, mute:false },
+        registered:{ connect:false, disconnect:true, call:true, answer:false, hangup:false, mute:false },
+        ringing: { connect:false, disconnect:true, call:false, answer:true, hangup:true, mute:false },
+        incall:  { connect:false, disconnect:true, call:false, answer:false, hangup:true, mute:true },
+        ended:   { connect:false, disconnect:true, call:true, answer:false, hangup:false, mute:false },
+      };
+      const st = map[s] || map.idle;
+      el('connectBtn').disabled    = !st.connect;
+      el('disconnectBtn').disabled = !st.disconnect;
+      el('callBtn').disabled       = !st.call;
+      el('answerBtn').disabled     = !st.answer;
+      el('hangupBtn').disabled     = !st.hangup;
+      el('muteBtn').disabled       = !st.mute;
+    }
+
+    function log(msg) {
+      const t = new Date().toLocaleTimeString();
+      logBox.innerHTML += `[${t}] ${msg}<br>`;
+      logBox.scrollTop = logBox.scrollHeight;
+      console.log(msg);
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = `Status: ${text}`;
+    }
+
+    function formatDur(ms) {
+      const total = Math.floor(ms/1000);
+      const m = String(Math.floor(total/60)).padStart(2,'0');
+      const s = String(total%60).padStart(2,'0');
+      return `${m}:${s}`;
+    }
+
+    function startTimer() {
+      callStartMs = Date.now();
+      timerEl.textContent = '00:00';
+      clearInterval(callTimerId);
+      callTimerId = setInterval(() => {
+        timerEl.textContent = formatDur(Date.now() - callStartMs);
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(callTimerId);
+      callTimerId = null;
+    }
+
+    function attachRemoteAudio(sess) {
+      try {
+        const pc = sess.connection; // RTCPeerConnection
+        pc.addEventListener('track', (evt) => {
+          el('remoteAudio').srcObject = evt.streams[0];
+        });
+      } catch (e) {
+        log('⚠️ Não foi possível anexar áudio remoto: ' + e);
+      }
+    }
+
+    // ======== eventos UI =========
+    el('connectBtn').addEventListener('click', () => {
+      const wss = el('wss').value.trim();
+      const user = el('user').value.trim();
+      const domain = el('domain').value.trim();
+      const pass = el('pass').value;
+
+      const socket = new JsSIP.WebSocketInterface(wss);
+
+      ua = new JsSIP.UA({
+        sockets: [socket],
+        uri: `sip:${user}@${domain}`,
+        password: pass,
+        session_timers: false,
+        register: true
+      });
+
+      // Logs detalhados no console do navegador
+      // JsSIP.debug.enable('JsSIP:*');
+
+      ua.on('connected', () => { setStatus('Conectado ao WebSocket'); uiState('ws'); log('🟢 WebSocket conectado'); });
+      ua.on('disconnected', () => { setStatus('Desconectado'); uiState('idle'); log('🔴 WebSocket desconectado'); });
+
+      ua.on('registered', () => { setStatus(`Registrado como ${user}@${domain}`); uiState('registered'); log('✅ Registrado'); });
+      ua.on('unregistered', () => { setStatus('Não registrado'); uiState('ws'); log('ℹ️ Unregistered'); });
+      ua.on('registrationFailed', (e) => { setStatus('Falha no registro'); uiState('idle'); log('❌ Registro falhou: ' + e.cause); });
+
+      ua.on('newRTCSession', (e) => {
+        session = e.session;
+        attachRemoteAudio(session);
+
+        if (e.originator === 'remote') {
+          // chamada entrando
+          const from = session.remote_identity && session.remote_identity.uri ? session.remote_identity.uri.toString() : 'remoto';
+          setStatus(`Chamada de ${from}`);
+          uiState('ringing');
+          log(`📲 Chamada entrando de ${from}`);
+
+          session.on('progress', () => { log('🔔 Toque (progress)'); setStatus('Chamando…'); });
+          session.on('accepted', () => { log('✅ Aceita (accepted)'); });
+          session.on('confirmed', () => { log('📞 Conectada'); setStatus('Em chamada'); uiState('incall'); startTimer(); });
+          session.on('ended', () => { log('📴 Encerrada'); setStatus('Encerrada'); uiState('ended'); stopTimer(); });
+          session.on('failed', (e) => { log('❌ Falhou: ' + e.cause); setStatus('Falhou: ' + e.cause); uiState('ended'); stopTimer(); });
+        } else {
+          // chamada saindo
+          log('📤 Chamando…');
+          setStatus('Chamando…');
+          uiState('ringing');
+
+          session.on('progress', () => { log('🔔 Toque (progress)'); setStatus('Chamando…'); });
+          session.on('accepted', () => { log('✅ Aceita (accepted)'); });
+          session.on('confirmed', () => { log('📞 Conectada'); setStatus('Em chamada'); uiState('incall'); startTimer(); });
+          session.on('ended', () => { log('📴 Encerrada'); setStatus('Encerrada'); uiState('ended'); stopTimer(); });
+          session.on('failed', (e) => { log('❌ Falhou: ' + e.cause); setStatus('Falhou: ' + e.cause); uiState('ended'); stopTimer(); });
+        }
+      });
+
+      ua.start();
+    });
+
+    el('disconnectBtn').addEventListener('click', () => {
+      try { ua && ua.stop(); } catch(e){}
+      setStatus('Desconectado');
+      uiState('idle');
+      log('⛔ Desconectado pelo usuário');
+    });
+
+    el('callBtn').addEventListener('click', async () => {
+      if (!ua) return alert('Conecte/registre primeiro.');
+      const target = el('target').value.trim();
+      if (!target) return alert('Informe o destino.');
+
+      const options = {
+        mediaConstraints: { audio: true, video: false }
+      };
+      session = ua.call(`sip:${target}@${el('domain').value.trim()}`, options);
+    });
+
+    el('answerBtn').addEventListener('click', () => {
+      if (session) {
+        session.answer({ mediaConstraints: { audio: true, video: false } });
+      }
+    });
+
+    el('hangupBtn').addEventListener('click', () => {
+      if (session) session.terminate();
+    });
+
+    el('muteBtn').addEventListener('click', () => {
+      if (!session) return;
+      try {
+        if (!isMuted) {
+          session.mute({ audio: true });
+          el('muteBtn').textContent = '🔊 Desmutar';
+          log('🔇 Microfone mutado');
+        } else {
+          session.unmute({ audio: true });
+          el('muteBtn').textContent = '🔇 Mutar';
+          log('🔊 Microfone desmutado');
+        }
+        isMuted = !isMuted;
+      } catch(e) {
+        log('⚠️ Erro ao alternar mute: ' + e);
+      }
+    });
+
+    // estado inicial
+    uiState('idle');
+  </script>
+</body>
+</html>

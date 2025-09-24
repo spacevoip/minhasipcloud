@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ng" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <!-- Cloud PABX: cloud with small PBX nodes connected -->
+  <g transform="translate(128,256)">
+    <path d="M220 300c-60 0-108-48-108-108s48-108 108-108c14 0 28 3 40 8 24-52 76-88 136-88 80 0 146 60 156 138 6-2 14-2 20-2 62 0 112 50 112 112s-50 112-112 112H220z" fill="url(#ng)"/>
+    <!-- PBX nodes -->
+    <g fill="#fff" fill-opacity=".92">
+      <rect x="260" y="266" width="80" height="52" rx="10"/>
+      <rect x="368" y="242" width="88" height="60" rx="10"/>
+      <rect x="488" y="268" width="84" height="54" rx="10"/>
+    </g>
+    <!-- lines -->
+    <path d="M300 266 L340 242 L392 242 M456 268 L456 272 L488 268" stroke="#fff" stroke-opacity=".8" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>

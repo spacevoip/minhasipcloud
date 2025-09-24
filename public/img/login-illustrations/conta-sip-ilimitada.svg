@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#60A5FA"/>
+    </linearGradient>
+  </defs>
+  <!-- Unlimited SIP account: infinity symbol + chip/port motif -->
+  <g transform="translate(128,256)">
+    <path d="M220 192c0-66 54-120 120-120h16c38 0 72 18 94 46 22-28 56-46 94-46h16c66 0 120 54 120 120s-54 120-120 120h-16c-38 0-72-18-94-46-22 28-56 46-94 46h-16c-66 0-120-54-120-120z" stroke="url(#cg)" stroke-width="40" fill="none" stroke-linecap="round"/>
+    <!-- chip -->
+    <rect x="340" y="340" width="220" height="150" rx="26" fill="url(#cg)"/>
+    <g fill="#fff" fill-opacity=".92">
+      <rect x="360" y="360" width="36" height="20" rx="6"/>
+      <rect x="408" y="360" width="36" height="20" rx="6"/>
+      <rect x="456" y="360" width="36" height="20" rx="6"/>
+      <rect x="504" y="360" width="36" height="20" rx="6"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">PBX Pro Inova Logo</title>
+  <desc id="desc">Stylized letter P with an upper arc, using brand blue gradient</desc>
+  <defs>
+    <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <!-- Arc: perfect semicircle, center (64,48), radius 44 -->
+  <path d="M20 48 A44 44 0 0 1 108 48" fill="none" stroke="url(#arcGrad)" stroke-width="10" stroke-linecap="round"/>
+  <!-- Letter P -->
+  <g fill="#0f172a">
+    <path d="M40 100V28h22c16.568 0 30 13.432 30 30S78.568 88 62 88H52v12H40zm12-24h10c9.941 0 18-8.059 18-18s-8.059-18-18-18H52v36z"/>
+  </g>
+</svg>
