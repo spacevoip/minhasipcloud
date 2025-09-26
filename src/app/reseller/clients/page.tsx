@@ -305,7 +305,7 @@ export default function ResellerClientsPage() {
         const { secureSupabaseService } = await import('@/services/secureSupabaseService');
         const resellerPlansFromAPI = await secureSupabaseService.getPlansByReseller(currentUser.id);
         
-        console.log(`🔍 Encontrados ${resellerPlansFromAPI.length} planos do revendedor ${currentUser.id}`);
+        // Planos do revendedor carregados
         
         setRealPlans(resellerPlansFromAPI);
         
@@ -317,10 +317,10 @@ export default function ResellerClientsPage() {
           }));
         }
         
-        console.log(`✅ Planos reais carregados: ${resellerPlansFromAPI.length} planos disponíveis para o revendedor`);
+        // Planos reais carregados com sucesso
         
       } catch (plansError) {
-        console.error('❌ Erro ao carregar planos reais, usando fallback:', plansError);
+        // Erro ao carregar planos reais, usando fallback
         
         // Fallback: usar planos do store se disponíveis
         if (resellerPlans.length > 0) {
@@ -333,11 +333,11 @@ export default function ResellerClientsPage() {
             }));
           }
           
-          console.log(`✅ Fallback: usando ${resellerPlans.length} planos do store`);
+          // Fallback: usando planos do store
         } else {
           // Se não há planos no store, tentar buscar diretamente via secureSupabaseService
           try {
-            console.log('🔄 Fallback: buscando planos via secureSupabaseService...');
+            // Fallback: buscando planos via secureSupabaseService
             const { secureSupabaseService } = await import('@/services/secureSupabaseService');
             const resellerSpecificPlans = await secureSupabaseService.getPlansByReseller(currentUser.id);
             setRealPlans(resellerSpecificPlans);
@@ -349,17 +349,17 @@ export default function ResellerClientsPage() {
               }));
             }
             
-            console.log(`✅ Fallback: usando ${resellerSpecificPlans.length} planos específicos do revendedor`);
+            // Fallback: usando planos específicos do revendedor
           } catch (resellerPlansError) {
-            console.error('❌ Erro ao carregar planos do revendedor:', resellerPlansError);
+            // Erro ao carregar planos do revendedor
             setRealPlans([]);
-            console.log('⚠️ Nenhum plano encontrado para este revendedor');
+            // Nenhum plano encontrado para este revendedor
           }
         }
       }
 
-      console.log(`✅ Dados carregados com sucesso: ${clients.length} clientes, ${realPlans.length} planos`);
-      console.log('🔄 loadResellerData concluído - evitando loops futuros');
+      // Dados carregados com sucesso
+      // loadResellerData concluído
 
     } catch (error) {
       console.error('❌ Erro ao carregar dados do revendedor:', error);

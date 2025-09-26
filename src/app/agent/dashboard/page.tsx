@@ -923,7 +923,7 @@ export default function AgentDashboard() {
       clearInterval(autoReplenishTimerRef.current);
       autoReplenishTimerRef.current = null;
     }
-    console.log('🛑 [AutoDialer] Parado');
+    // AutoDialer parado
   };
 
   // (stopCallTimer defined later near timers section to avoid duplication)
@@ -973,7 +973,7 @@ export default function AgentDashboard() {
           autoDialerContactsRef.current = [...autoDialerContactsRef.current, ...toMove];
           const newRemaining = autoDialerContactsRef.current.slice(idx + 1);
           setAutoDialerQueueSafe(newRemaining);
-          console.log(`🧃 [AutoDialer] +${toMove.length} movidos da memória para ativa. Ativa agora=${newRemaining.length}, Memória=${autoMemoryBufferRef.current.length}`);
+          // Contatos movidos da memória para fila ativa
         }
       }
 
@@ -995,13 +995,13 @@ export default function AgentDashboard() {
             const freshMem = addMem.filter(c => !seen.has(c.id));
             if (freshMem.length > 0) {
               autoMemoryBufferRef.current = [...autoMemoryBufferRef.current, ...freshMem];
-              console.log(`🧠 [AutoDialer] Memória reabastecida: +${freshMem.length}, totalMem=${autoMemoryBufferRef.current.length}`);
+              // Memória reabastecida
             }
           }
         }
       }
     } catch (e) {
-      console.warn('⚠️ [AutoDialer] Falha ao reabastecer fila:', e);
+      // Falha ao reabastecer fila
     }
   };
 
@@ -1033,7 +1033,7 @@ export default function AgentDashboard() {
     setAutoDialerCurrentContact(active[0] || null);
     autoMemoryBufferRef.current = mem;
     setAutoDialerStats(prev => ({ ...prev, total: active.length, remaining: Math.max(0, active.length - 1) }));
-    console.log(`🚀 [AutoDialer] Seed 2-níveis: ativa=${active.length}, memória=${mem.length}`);
+    // AutoDialer inicializado com filas ativa e memória
     return { activeCount: active.length, memoryCount: mem.length };
   };
 
@@ -1119,14 +1119,14 @@ export default function AgentDashboard() {
         }
         // Contabilizar falha com causa
         const info = getWebRTCFailureInfo(ev);
-        console.warn('📵 [AutoDialer] Falha na chamada:', info, ev);
+        // Falha na chamada WebRTC
         setAutoDialerStats(prev => ({ ...prev, failed: prev.failed + 1 }));
         // Persistir e continuar para o próximo contato
         void finalizeAndLogCall('failed', ev);
         continueNext();
       });
     } catch (e) {
-      console.error('❌ [AutoDialer] Erro ao iniciar chamada automática:', e);
+      // Erro ao iniciar chamada automática
       // Contabilizar falha imediata
       setAutoDialerStats(prev => ({ ...prev, failed: prev.failed + 1 }));
       // Persistir falha sem tocar
@@ -1271,12 +1271,12 @@ export default function AgentDashboard() {
       callLogSavedRef.current = true; // marcar antes para evitar duplicatas em eventos em cascata
       const resp = await callLogsService.logFinalCall(payload);
       if (!resp.success) {
-        console.warn('⚠️ Falha ao salvar call log:', resp.message || resp.error);
+        // Falha ao salvar call log
       } else {
-        console.log('📝 Call log salvo:', resp.data);
+        // Call log salvo com sucesso
       }
     } catch (e) {
-      console.error('❌ Erro ao salvar call log:', e);
+      // Erro ao salvar call log
     }
   };
 
@@ -1374,7 +1374,7 @@ export default function AgentDashboard() {
       setContactSheetData(base);
       setContactSheetOpen(true);
     } catch (e) {
-      console.error('Erro ao abrir ficha do contato:', e);
+      // Erro ao abrir ficha do contato
       showToast('Não foi possível abrir a ficha do contato', 'error');
     }
   };
@@ -1429,7 +1429,7 @@ export default function AgentDashboard() {
               }
             }
           } catch (e) {
-            console.warn('⚠️ Falha ao resolver contato no backend:', e);
+            // Falha ao resolver contato no backend
           }
         }
       }
@@ -1440,7 +1440,7 @@ export default function AgentDashboard() {
       }
       openContactSheet(candidate);
     } catch (e) {
-      console.error('Erro ao abrir ficha do número atual:', e);
+      // Erro ao abrir ficha do número atual
       showToast('Erro ao abrir ficha', 'error');
     }
   };
