@@ -1,10 +1,17 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   // Proxy all frontend /api/* calls to our backend server (Express) to avoid CORS and 404s
   async rewrites() {
     const backend = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const isUsingEnv = !!process.env.NEXT_PUBLIC_API_URL;
+    
+    console.log('🔧 [next.config.ts] Backend URL:', {
+      url: backend,
+      source: isUsingEnv ? 'NEXT_PUBLIC_API_URL env var' : 'fallback (localhost:3001)',
+      env_value: process.env.NEXT_PUBLIC_API_URL || 'undefined'
+    });
+    
     return [
       {
         source: '/api/:path*',
@@ -24,22 +31,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Configuração do Sentry para PABX
-const sentryWebpackPluginOptions = {
-  // Configurações específicas para o sistema PABX
-  org: "minhasip",
-  project: "javascript-nextjs",
-  
-  // Apenas upload de source maps em produção
-  silent: true,
-  widenClientFileUpload: true,
-  reactComponentAnnotation: {
-    enabled: true,
-  },
-  tunnelRoute: "/monitoring",
-  hideSourceMaps: true,
-  disableLogger: true,
-  automaticVercelMonitors: false,
-};
-
-export default withSentryConfig(nextConfig, sentryWebpackPluginOptions);
+export default nextConfig;

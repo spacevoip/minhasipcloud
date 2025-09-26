@@ -227,6 +227,7 @@ class UnifiedAuthService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...data,
+          referral: data.referral || '',
           termsAccepted: data.termsAccepted ? 'true' : 'false'
         })
       });

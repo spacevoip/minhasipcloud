@@ -5,7 +5,9 @@
 import { supabase } from './supabase';
 import { errorHandler } from './errorHandler';
 import { logger } from '@/lib/logger';
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+import { logApiUrl } from './apiUrlLogger';
+
+const API_BASE_URL = logApiUrl('auth.ts').replace(/\/$/, '');
 
 export interface AuthUser {
   id: string;
@@ -166,7 +168,7 @@ class AuthService {
           password: data.password,
           phone: data.phone || null,
           cpfCnpj: data.cpfCnpj || null,
-          referral: data.referral || null,
+          referral: data.referral || '',
           // backend valida equals('true'), então enviar string 'true' quando aceito
           termsAccepted: data.termsAccepted ? 'true' : 'false',
           // Cloudflare Turnstile token (if present)

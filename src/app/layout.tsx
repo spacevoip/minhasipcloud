@@ -4,10 +4,8 @@ import Script from 'next/script';
 import './globals.css';
 import { ToastProvider } from '@/components/ui/toast';
 import { AuthHydration } from '@/components/auth/AuthHydration';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { ToastErrorHandler } from '@/components/ui/toast-error-handler';
-import { QueryProvider } from '@/components/providers/QueryProvider';
 import MatomoTracker from '@/components/analytics/MatomoTracker';
+import { ApiUrlDebug } from '@/components/ApiUrlDebug';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -45,18 +43,14 @@ export default function RootLayout({
         </Script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ErrorBoundary>
-          <QueryProvider>
-            <ToastProvider>
-              <ToastErrorHandler />
-              <AuthHydration>
-                {children}
-              </AuthHydration>
-              {/* Track SPA navigations */}
-              <MatomoTracker />
-            </ToastProvider>
-          </QueryProvider>
-        </ErrorBoundary>
+        <ToastProvider>
+          <AuthHydration>
+            {children}
+          </AuthHydration>
+          {/* Track SPA navigations */}
+          <MatomoTracker />
+        </ToastProvider>
+        <ApiUrlDebug />
       </body>
     </html>
   );

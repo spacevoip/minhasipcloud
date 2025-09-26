@@ -139,7 +139,12 @@ function LoginContent() {
       // Verificar se o dashboard está pronto fazendo uma requisição de teste
       const token = localStorage.getItem('token');
       if (token) {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/me`, {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        console.log('🔗 [login/page.tsx] Auth check:', {
+          url: apiUrl,
+          source: process.env.NEXT_PUBLIC_API_URL ? '✅ env var' : '⚠️  fallback'
+        });
+        const response = await fetch(`${apiUrl}/api/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         

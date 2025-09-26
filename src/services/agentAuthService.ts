@@ -1,9 +1,13 @@
+import { errorHandler } from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
+import { logApiUrl } from '@/lib/apiUrlLogger';
+
 interface AgentLoginData {
   ramal: string;
   senha: string;
 }
 
-interface AgentData {
+export interface AgentData {
   id: string;
   ramal: string;
   agente_name: string;
@@ -34,7 +38,7 @@ class AgentAuthService {
   private token: string | null = null;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    this.baseUrl = logApiUrl('agentAuthService.ts');
     
     // Load token from localStorage on initialization
     if (typeof window !== 'undefined') {
