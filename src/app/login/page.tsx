@@ -1671,14 +1671,14 @@ function LoginContent() {
               </>
             )}
 
-            {authTab === 'signup' && (
+            {authTab === 'signup' && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
               <div className="card">
                 <h3>Verificação</h3>
                 <div className="form-group">
                   {/* Cloudflare Turnstile widget (explicit) */}
                   <div
                     className="cf-turnstile"
-                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
+                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
                     data-theme="light"
                     data-appearance="always"
                   />
@@ -1689,20 +1689,6 @@ function LoginContent() {
               </div>
             )}
 
-            {authTab === 'login' && (
-              <div className="card">
-                <h3>Verificação</h3>
-                <div className="form-group">
-                  {/* Cloudflare Turnstile widget (explicit, login) */}
-                  <div
-                    className="cf-turnstile"
-                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
-                    data-theme="light"
-                    data-appearance="always"
-                  />
-                </div>
-              </div>
-            )}
 
             {error && error !== 'plan_expired' && (
               <div className="error-message" role="alert" aria-live="assertive">
@@ -1807,8 +1793,10 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <ToastProvider>
-      {/* Cloudflare Turnstile script (safe to include globally; widget only renders when present) */}
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" async defer />
+      {/* Cloudflare Turnstile script (only load if configured) */}
+      {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" async defer />
+      )}
       <LoginContent />
     </ToastProvider>
   );
