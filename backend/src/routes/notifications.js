@@ -1,7 +1,7 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireResellerOrAdmin } = require('../middleware/auth');
 const { supabase } = require('../config/database');
-const { body, validationResult } = require('express-validator');
+const { body, validationResult, query } = require('express-validator');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
