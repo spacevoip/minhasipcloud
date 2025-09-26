@@ -33,11 +33,9 @@ export interface ActiveCallsData {
 
 class ActiveCallsService {
   private baseUrl = (() => {
-    const host = process.env.NEXT_PUBLIC_ENDPOINT_HOST || 'localhost';
-    const port = process.env.NEXT_PUBLIC_ENDPOINT_PORT || '3001';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const path = '/api/active-calls';
-    const protocol = process.env.NEXT_PUBLIC_ENDPOINT_PROTOCOL || 'http';
-    return `${protocol}://${host}:${port}${path}`;
+    return `${apiBase}${path}`;
   })();
   
   private updateInterval: NodeJS.Timeout | null = null;

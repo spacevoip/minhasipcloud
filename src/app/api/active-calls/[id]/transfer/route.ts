@@ -27,7 +27,7 @@ export async function POST(
     }
 
     // Fazer chamada para a API do backend
-    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:3001'}/api/call-transfer/execute`, {
+    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/call-transfer/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

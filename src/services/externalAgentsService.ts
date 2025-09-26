@@ -1,5 +1,5 @@
 // Serviço para buscar dados dos agentes da API externa
-// Configurado para usar ENDPOINT_HOST, ENDPOINT_PORT e ENDPOINT_AGENTS do .env.local
+// Configurado para usar NEXT_PUBLIC_API_URL
 
 export interface ExternalAgent {
   id: string;
@@ -40,26 +40,15 @@ class ExternalAgentsService {
   private DEBUG: boolean;
 
   constructor() {
-    // Preferir um BASE URL único quando disponível
-    // Variáveis aceitas:
-    // - NEXT_PUBLIC_API_URL (ex: http://localhost:3001 ou https://api.suaempresa.com)
-    // - OU (fallback) NEXT_PUBLIC_ENDPOINT_HOST, NEXT_PUBLIC_ENDPOINT_PORT
-    //   e caminhos NEXT_PUBLIC_ENDPOINT_AGENTS, NEXT_PUBLIC_ENDPOINT_USERS
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').trim();
-    const host = process.env.NEXT_PUBLIC_ENDPOINT_HOST || '69.62.103.45';
-    const port = process.env.NEXT_PUBLIC_ENDPOINT_PORT || '3000';
-    const agentsEndpoint = process.env.NEXT_PUBLIC_ENDPOINT_AGENTS || '/api/agents';
-    const usersEndpoint = process.env.NEXT_PUBLIC_ENDPOINT_USERS || '/api/users';
+    // Usar NEXT_PUBLIC_API_URL como base URL única
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const agentsEndpoint = '/api/agents';
+    const usersEndpoint = '/api/users';
 
     const normalize = (s: string) => s.replace(/\/+$/, '');
     const ensureLeadingSlash = (s: string) => (s.startsWith('/') ? s : `/${s}`);
 
-    let base = '';
-    if (apiBase) {
-      base = normalize(apiBase);
-    } else {
-      base = `http://${host}${port ? `:${port}` : ''}`;
-    }
+    const base = normalize(apiBase);
 
     this.baseAgentsUrl = `${base}${ensureLeadingSlash(agentsEndpoint)}`;
     this.baseUsersUrl = `${base}${ensureLeadingSlash(usersEndpoint)}`;

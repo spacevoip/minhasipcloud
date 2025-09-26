@@ -35,11 +35,9 @@ export interface AdminAgentsResponse {
 
 class AdminAgentsService {
   private baseUrl = (() => {
-    const host = process.env.NEXT_PUBLIC_ENDPOINT_HOST || 'localhost';
-    const port = process.env.NEXT_PUBLIC_ENDPOINT_PORT || '3001';
-    const protocol = process.env.NEXT_PUBLIC_ENDPOINT_PROTOCOL || 'http';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const path = '/api/admin/agents';
-    return `${protocol}://${host}:${port}${path}`;
+    return `${apiBase}${path}`;
   })();
 
   private authHeaders() {
