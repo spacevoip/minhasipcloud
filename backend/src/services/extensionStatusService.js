@@ -6,13 +6,13 @@
  * baseado na tabela ps_contacts a cada 5 segundos
  */
 
-const { createClient } = require('@supabase/supabase-js');
+const { supabase } = require('../config/database');
 const cacheService = require('./cacheService');
+const logger = require('../utils/logger');
 
 class ExtensionStatusService {
   constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL,
+    this.supabase = supabase;
       process.env.SUPABASE_ANON_KEY
     );
     

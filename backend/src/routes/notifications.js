@@ -1,6 +1,12 @@
 const express = require('express');
-const { body, query, validationResult } = require('express-validator');
-const { authenticateToken, requireResellerOrAdmin } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
+const { supabase } = require('../config/database');
+const { body, validationResult } = require('express-validator');
+const multer = require('multer');
+const csv = require('csv-parser');
+const fs = require('fs');
+const path = require('path');
+const logger = require('../utils/logger');
 const cacheService = require('../services/cacheService');
 
 const router = express.Router();
