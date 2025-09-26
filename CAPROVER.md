@@ -7,16 +7,36 @@ Este projeto está configurado para deploy no CapRover usando microserviços sep
 ### Frontend (Next.js)
 - **App Name**: `pabx-frontend`
 - **Path**: Raiz do repositório
-- **Config**: `captain-definition` (Node.js 20)
-- **Build Command**: `npm run build`
-- **Start Command**: `npm start`
+- **Config**: `captain-definition` (Dockerfile + Port 3000)
+- **Dockerfile**: `./Dockerfile`
+- **Port**: 3000 (interno)
 
 ### Backend (Express.js)
 - **App Name**: `pabx-backend`
 - **Path**: `/backend` folder
-- **Config**: `backend/captain-definition` (Node.js 20)
-- **Build Command**: `npm install`
-- **Start Command**: `npm start`
+- **Config**: `backend/captain-definition` (Dockerfile + Port 3001)
+- **Dockerfile**: `./backend/Dockerfile`
+- **Port**: 3001 (interno)
+
+## Arquivos de Configuração
+
+### captain-definition (Frontend)
+```json
+{
+  "schemaVersion": 2,
+  "dockerfilePath": "./Dockerfile",
+  "defaultPort": 3000
+}
+```
+
+### captain-definition (Backend)
+```json
+{
+  "schemaVersion": 2,
+  "dockerfilePath": "./backend/Dockerfile",
+  "defaultPort": 3001
+}
+```
 
 ## Deploy Steps
 
@@ -24,14 +44,14 @@ Este projeto está configurado para deploy no CapRover usando microserviços sep
 ```bash
 # No CapRover, criar app: pabx-frontend
 # Conectar ao repositório: branch main, path: /
-# O CapRover vai usar o captain-definition da raiz
+# O CapRover vai usar o Dockerfile da raiz
 ```
 
 ### 2. Backend Deploy
 ```bash
 # No CapRover, criar app: pabx-backend
 # Conectar ao repositório: branch main, path: /backend
-# O CapRover vai usar o captain-definition do backend
+# O CapRover vai usar o Dockerfile do backend
 ```
 
 ## Variáveis de Ambiente
