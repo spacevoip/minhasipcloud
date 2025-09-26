@@ -12,7 +12,6 @@ const { body, validationResult, param, query } = require('express-validator');
 const { supabase } = require('../config/database');
 const User = require('../models/User');
 const cacheService = require('../services/cacheService');
-const financeService = require('../services/financeService');
 const { authenticateToken } = require('../middleware/auth');
 const { sanitizeUserOutput } = require('../utils/sanitize');
 const logger = require('../utils/logger');
