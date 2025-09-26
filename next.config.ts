@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable standalone output for Docker
-  output: 'standalone',
-  
   // Proxy all frontend /api/* calls to our backend server (Express) to avoid CORS and 404s
   async rewrites() {
     const backend = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
