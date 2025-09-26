@@ -19,7 +19,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Middleware para debug de requisições
 const debugRequest = (req, res, next) => {
-  console.log('🔍 DEBUG REQUEST:', {
+  logger.debug('DEBUG REQUEST:', {
     method: req.method,
     url: req.originalUrl,
     headers: {
@@ -37,17 +37,17 @@ const debugRequest = (req, res, next) => {
 // --- Middleware para validar BIGINT ID
 const validateBigIntId = (req, res, next) => {
   const { id } = req.params;
-  console.log('🔍 Validando ID:', id);
+  logger.debug('Validando ID:', id);
   
   if (!/^\d+$/.test(id) || parseInt(id) <= 0) {
-    console.log('❌ ID inválido:', id);
+    logger.warn('ID inválido:', id);
     return res.status(400).json({ 
       success: false, 
       message: 'ID inválido - deve ser um número inteiro positivo',
       received_id: id
     });
   }
-  console.log('✅ ID válido:', id);
+  logger.debug('ID válido:', id);
   next();
 };
 
@@ -66,14 +66,14 @@ const normalizeTypeFromAudience = (req, res, next) => {
     if (!hasType) {
       if (hasAudience) {
         req.body.type = String(audienceRaw).trim();
-        console.log('🔁 Normalizado type a partir de audience:', req.body.type);
+        logger.debug('Normalizado type a partir de audience:', req.body.type);
       } else if (hasAudienceType) {
         req.body.type = String(audienceTypeRaw).trim();
-        console.log('🔁 Normalizado type a partir de audience_type:', req.body.type);
+        logger.debug('Normalizado type a partir de audience_type:', req.body.type);
       }
     }
   } catch (e) {
-    console.log('⚠️ Falha ao normalizar type de audience:', e.message);
+    logger.warn('Falha ao normalizar type de audience:', e.message);
   }
   next();
 };
@@ -106,7 +106,7 @@ const parseListParams = (req) => {
     order: safeOrder
   };
   
-  console.log('🔍 Parâmetros parseados:', parsed);
+  logger.debug('Parâmetros parseados:', parsed);
   return parsed;
 };
 
@@ -152,7 +152,7 @@ const validateNotificationPayload = [
   body('expires_at')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
-      console.log('🔍 Validando expires_at:', value, typeof value);
+      logger.debug('Validando expires_at:', value, typeof value);
       if (value === '' || value === null || value === undefined) {
         return true;
       }
@@ -167,7 +167,7 @@ const validateNotificationPayload = [
   body('data_termination')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
-      console.log('🔍 Validando data_termination:', value, typeof value);
+      logger.debug('Validando data_termination:', value, typeof value);
       if (value === '' || value === null || value === undefined) {
         return true;
       }
@@ -302,7 +302,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
         errors: errors.array()
       });
     }
-    console.log('📋 Listando notificações...');
+    logger.api('Listando notificações...');
     const params = parseListParams(req);
 
     let q = supabase
@@ -310,23 +310,23 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
       .select('id, title, message, type, status, expires_at, created_at, updated_at', { count: 'exact' });
 
     if (req.user.role === 'reseller') {
-      console.log('👤 Filtrando por user_id (reseller):', req.user.id);
+      logger.debug('Filtrando por user_id (reseller):', req.user.id);
       q = q.eq('user_id', req.user.id);
     }
     
     if (params.status) {
-      console.log('🔍 Filtrando por status:', params.status);
+      logger.debug('Filtrando por status:', params.status);
       q = q.eq('status', params.status);
     }
     
     if (params.audience_type) {
-      console.log('🔍 Filtrando por audience_type (type):', params.audience_type);
+      logger.debug('Filtrando por audience_type (type):', params.audience_type);
       q = q.eq('type', params.audience_type);
     }
     
     if (params.search) {
       const term = `%${params.search}%`;
-      console.log('🔍 Pesquisando por:', term);
+      logger.debug('Pesquisando por:', term);
       q = q.or(`message.ilike.${term},type.ilike.${term}`);
     }
 
@@ -334,7 +334,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
     q = q.order(params.orderBy, { ascending: params.order === 'asc' });
     q = q.range(params.offset, params.offset + params.limit - 1);
 
-    console.log('🔍 Query final construída');
+    logger.debug('Query final construída');
     const { data, error, count } = await q;
     
     if (error) {
@@ -342,7 +342,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
       throw error;
     }
 
-    console.log('✅ Notificações encontradas:', count);
+    logger.debug('Notificações encontradas:', count);
     
     // Cache control: avoid 304/client caching loops
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -355,7 +355,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
       data: (data || []).map(n => ({ ...n, audience: n.type }))
     });
   } catch (error) {
-    console.error('❌ Erro ao listar notificações:', error);
+    logger.error('Erro ao listar notificações:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Erro interno do servidor', 
@@ -376,12 +376,12 @@ router.get('/my', authenticateToken, debugRequest, validateMyListQuery, async (r
         errors: errors.array()
       });
     }
-    console.log('📋 Listando notificações do usuário:', req.user.id);
+    logger.api('Listando notificações do usuário:', req.user.id);
     const { limit = '20', offset = '0' } = req.query || {};
     const safeLimit = Math.max(1, Math.min(100, parseInt(limit)));
     const safeOffset = Math.max(0, parseInt(offset));
 
-    console.log('🔍 Parâmetros:', { safeLimit, safeOffset });
+    logger.debug('Parâmetros:', { safeLimit, safeOffset });
 
     // Buscar dados do usuário para saber parent_reseller_id e role
     const { data: me, error: meError } = await supabase
@@ -390,7 +390,7 @@ router.get('/my', authenticateToken, debugRequest, validateMyListQuery, async (r
       .eq('id', req.user.id)
       .single();
     if (meError) {
-      console.error('❌ Erro ao buscar usuário atual:', meError);
+      logger.error('Erro ao buscar usuário atual:', meError);
       throw meError;
     }
 
@@ -416,7 +416,7 @@ router.get('/my', authenticateToken, debugRequest, validateMyListQuery, async (r
 
     if (orClauses.length > 0) {
       const orExpr = orClauses.join(',');
-      console.log('🔍 Filtro de audiência (OR):', orExpr);
+      logger.debug('Filtro de audiência (OR):', orExpr);
       q = q.or(orExpr);
     }
 

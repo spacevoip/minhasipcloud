@@ -4,7 +4,24 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') });
+const fs = require('fs');
+// Carrega variáveis de ambiente do arquivo .env (prioritário) ou .env.local (fallback)
+(() => {
+  try {
+    const envCandidates = [
+      path.resolve(__dirname, '../.env'),
+      path.resolve(__dirname, '../.env.local')
+    ];
+    for (const p of envCandidates) {
+      if (fs.existsSync(p)) {
+        require('dotenv').config({ path: p });
+        break;
+      }
+    }
+  } catch (_) {
+    // ignora
+  }
+})();
 
 // Logger profissional
 const logger = require('./utils/logger');

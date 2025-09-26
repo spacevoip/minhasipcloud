@@ -17,7 +17,6 @@ const User = require('../models/User');
 const cacheService = require('../services/cacheService');
 const logger = require('../utils/logger');
 const { sanitizeUserOutput } = require('../utils/sanitize');
-const { supabase } = require('../config/database');
 
 const router = express.Router();
 

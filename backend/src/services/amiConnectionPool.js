@@ -3,8 +3,9 @@
  * Manages multiple AMI connections with heartbeat and automatic failover
  */
 
-const net = require('net');
+const AsteriskManager = require('asterisk-manager');
 const EventEmitter = require('events');
+const logger = require('../utils/logger');
 
 class AMIConnection extends EventEmitter {
   constructor(id, config) {
@@ -30,13 +31,13 @@ class AMIConnection extends EventEmitter {
         return;
       }
 
-      console.log(`🔄 [AMI-${this.id}] Conectando ao ${this.config.host}:${this.config.port}...`);
+      logger.debug(`AMI-${this.id} conectando ao ${this.config.host}:${this.config.port}...`);
       
       this.socket = new net.Socket();
       this.socket.setTimeout(30000); // 30s timeout
 
       this.socket.on('connect', () => {
-        console.log(`✅ [AMI-${this.id}] Conectado`);
+        logger.debug(`AMI-${this.id} conectado`);
         this.connected = true;
         this.reconnectAttempts = 0;
         this.lastActivity = Date.now();
@@ -59,12 +60,12 @@ class AMIConnection extends EventEmitter {
       });
 
       this.socket.on('timeout', () => {
-        console.warn(`⏰ [AMI-${this.id}] Timeout - reconectando...`);
+        logger.warn(`AMI-${this.id} timeout - reconectando...`);
         this.handleDisconnect();
       });
 
       this.socket.on('error', (err) => {
-        console.error(`❌ [AMI-${this.id}] Erro:`, err.message);
+        logger.error(`AMI-${this.id} erro:`, err.message);
         this.handleDisconnect();
         if (this.reconnectAttempts === 0) {
           reject(err);
@@ -72,7 +73,7 @@ class AMIConnection extends EventEmitter {
       });
 
       this.socket.on('close', () => {
-        console.log(`🔌 [AMI-${this.id}] Conexão fechada`);
+        logger.debug(`AMI-${this.id} conexão fechada`);
         this.handleDisconnect();
       });
 
@@ -125,7 +126,7 @@ class AMIConnection extends EventEmitter {
     }
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error(`❌ [AMI-${this.id}] Máximo de tentativas de reconexão atingido`);
+      logger.error(`AMI-${this.id} máximo de tentativas de reconexão atingido`);
       this.emit('maxReconnectAttemptsReached');
       return;
     }
@@ -133,11 +134,11 @@ class AMIConnection extends EventEmitter {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, Math.min(this.reconnectAttempts - 1, 5)); // Exponential backoff
     
-    console.log(`🔄 [AMI-${this.id}] Reagendando reconexão em ${delay}ms (tentativa ${this.reconnectAttempts})`);
+    logger.debug(`AMI-${this.id} reagendando reconexão em ${delay}ms (tentativa ${this.reconnectAttempts})`);
     
     this.reconnectTimeout = setTimeout(() => {
       this.connect().catch(err => {
-        console.error(`❌ [AMI-${this.id}] Falha na reconexão:`, err.message);
+        logger.error(`AMI-${this.id} falha na reconexão:`, err.message);
       });
     }, delay);
   }
@@ -178,11 +179,11 @@ class AMIConnection extends EventEmitter {
 
   handleResponse(response) {
     if (response.Response === 'Success' && response.Message?.includes('Authentication accepted')) {
-      console.log(`✅ [AMI-${this.id}] Login realizado com sucesso`);
+      logger.debug(`AMI-${this.id} login realizado com sucesso`);
       this.authenticated = true;
       this.emit('authenticated');
     } else if (response.Response === 'Error') {
-      console.error(`❌ [AMI-${this.id}] Erro na resposta:`, response.Message);
+      logger.error(`AMI-${this.id} erro na resposta:`, response.Message);
     }
 
     this.emit('response', response);
@@ -206,7 +207,7 @@ class AMIConnection extends EventEmitter {
 
     this.connected = false;
     this.authenticated = false;
-    console.log(`👋 [AMI-${this.id}] Desconectado`);
+    logger.debug(`AMI-${this.id} desconectado`);
   }
 
   isHealthy() {
@@ -235,7 +236,7 @@ class AMIConnectionPool extends EventEmitter {
   async initialize() {
     if (this.initialized) return;
 
-    console.log(`🔄 [AMI-Pool] Inicializando pool com ${this.config.poolSize} conexões...`);
+    logger.debug(`AMI-Pool inicializando pool com ${this.config.poolSize} conexões...`);
 
     // Create connections
     for (let i = 0; i < this.config.poolSize; i++) {
@@ -250,11 +251,11 @@ class AMIConnectionPool extends EventEmitter {
       });
 
       connection.on('disconnected', () => {
-        console.warn(`⚠️ [AMI-Pool] Conexão ${connection.id} desconectada`);
+        logger.warn(`AMI-Pool conexão ${connection.id} desconectada`);
       });
 
       connection.on('maxReconnectAttemptsReached', () => {
-        console.error(`❌ [AMI-Pool] Conexão ${connection.id} falhou permanentemente`);
+        logger.error(`AMI-Pool conexão ${connection.id} falhou permanentemente`);
         this.replaceConnection(connection);
       });
 
@@ -264,7 +265,7 @@ class AMIConnectionPool extends EventEmitter {
     // Connect all connections
     const connectionPromises = this.connections.map(conn => 
       conn.connect().catch(err => {
-        console.warn(`⚠️ [AMI-Pool] Falha ao conectar ${conn.id}:`, err.message);
+        logger.warn(`AMI-Pool falha ao conectar ${conn.id}:`, err.message);
         return null;
       })
     );
@@ -277,7 +278,7 @@ class AMIConnectionPool extends EventEmitter {
       throw new Error('Nenhuma conexão AMI saudável disponível');
     }
 
-    console.log(`✅ [AMI-Pool] Pool inicializado com ${healthyConnections.length}/${this.config.poolSize} conexões saudáveis`);
+    logger.debug(`AMI-Pool pool inicializado com ${healthyConnections.length}/${this.config.poolSize} conexões saudáveis`);
     this.initialized = true;
 
     // Start health monitoring
@@ -313,7 +314,7 @@ class AMIConnectionPool extends EventEmitter {
     const index = this.connections.indexOf(failedConnection);
     if (index === -1) return;
 
-    console.log(`🔄 [AMI-Pool] Substituindo conexão ${failedConnection.id}...`);
+    logger.debug(`AMI-Pool substituindo conexão ${failedConnection.id}...`);
     
     // Disconnect old connection
     failedConnection.disconnect();
@@ -330,11 +331,11 @@ class AMIConnectionPool extends EventEmitter {
     });
 
     newConnection.on('disconnected', () => {
-      console.warn(`⚠️ [AMI-Pool] Conexão ${newConnection.id} desconectada`);
+      logger.warn(`AMI-Pool conexão ${newConnection.id} desconectada`);
     });
 
     newConnection.on('maxReconnectAttemptsReached', () => {
-      console.error(`❌ [AMI-Pool] Conexão ${newConnection.id} falhou permanentemente`);
+      logger.error(`AMI-Pool conexão ${newConnection.id} falhou permanentemente`);
       this.replaceConnection(newConnection);
     });
 
@@ -342,9 +343,9 @@ class AMIConnectionPool extends EventEmitter {
 
     try {
       await newConnection.connect();
-      console.log(`✅ [AMI-Pool] Conexão ${newConnection.id} substituída com sucesso`);
+      logger.debug(`AMI-Pool conexão ${newConnection.id} substituída com sucesso`);
     } catch (err) {
-      console.error(`❌ [AMI-Pool] Falha ao substituir conexão ${newConnection.id}:`, err.message);
+      logger.error(`AMI-Pool falha ao substituir conexão ${newConnection.id}:`, err.message);
     }
   }
 
@@ -354,7 +355,7 @@ class AMIConnectionPool extends EventEmitter {
       const totalCount = this.connections.length;
       
       if (healthyCount < totalCount) {
-        console.warn(`⚠️ [AMI-Pool] Saúde: ${healthyCount}/${totalCount} conexões saudáveis`);
+        logger.warn(`AMI-Pool saúde: ${healthyCount}/${totalCount} conexões saudáveis`);
       }
 
       // Replace unhealthy connections
@@ -367,7 +368,7 @@ class AMIConnectionPool extends EventEmitter {
   }
 
   async disconnect() {
-    console.log('🔄 [AMI-Pool] Desconectando todas as conexões...');
+    logger.debug('AMI-Pool desconectando todas as conexões...');
     
     const disconnectPromises = this.connections.map(conn => {
       return new Promise(resolve => {
@@ -378,7 +379,7 @@ class AMIConnectionPool extends EventEmitter {
 
     await Promise.all(disconnectPromises);
     this.initialized = false;
-    console.log('👋 [AMI-Pool] Todas as conexões desconectadas');
+    logger.debug('AMI-Pool todas as conexões desconectadas');
   }
 
   getPoolStatus() {

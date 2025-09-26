@@ -13,8 +13,6 @@ const logger = require('../utils/logger');
 class ExtensionStatusService {
   constructor() {
     this.supabase = supabase;
-      process.env.SUPABASE_ANON_KEY
-    );
     
     this.isMonitoring = false;
     this.monitoringInterval = null;
@@ -25,7 +23,7 @@ class ExtensionStatusService {
     // Cache para armazenar status dos ramais
     this.extensionStatusCache = new Map();
     
-    console.log('🔌 ExtensionStatusService inicializado');
+    logger.debug('ExtensionStatusService inicializado');
   }
 
   // Converte expiration_time (segundos Unix, milissegundos ou ISO) para Date
@@ -63,11 +61,11 @@ class ExtensionStatusService {
    */
   startMonitoring() {
     if (this.isMonitoring) {
-      console.log('⚠️ Monitoramento já está ativo');
+      logger.warn('Monitoramento já está ativo');
       return;
     }
 
-    console.log('🚀 Iniciando monitoramento de ramais (5s)...');
+    logger.debug('Iniciando monitoramento de ramais (5s)...');
     this.isMonitoring = true;
 
     // Primeira verificação imediata
@@ -84,11 +82,11 @@ class ExtensionStatusService {
    */
   stopMonitoring() {
     if (!this.isMonitoring) {
-      console.log('⚠️ Monitoramento já está parado');
+      logger.warn('Monitoramento já está parado');
       return;
     }
 
-    console.log('🛑 Parando monitoramento de ramais...');
+    logger.debug('Parando monitoramento de ramais...');
     this.isMonitoring = false;
 
     if (this.monitoringInterval) {
@@ -109,11 +107,11 @@ class ExtensionStatusService {
       const shouldThrottle = !forceRefresh && !isFirstCheck && (now - this.lastContactsCheck < 120000);
       
       if (shouldThrottle) {
-        console.log('⏭️ Throttling: pulando verificação ps_contacts (última há', Math.round((now - this.lastContactsCheck) / 1000), 'segundos)');
+        logger.debug('Throttling: pulando verificação ps_contacts (última há', Math.round((now - this.lastContactsCheck) / 1000), 'segundos)');
         return; // Skip this check apenas se não for primeira vez
       }
       
-      console.log('🔍 Consultando ps_contacts...', isFirstCheck ? '(primeira carga)' : forceRefresh ? '(forçado)' : '(throttling expirado)');
+      logger.debug('Consultando ps_contacts...', isFirstCheck ? '(primeira carga)' : forceRefresh ? '(forçado)' : '(throttling expirado)');
       this.lastContactsCheck = now;
 
       // Buscar todos os ramais registrados na ps_contacts
@@ -122,17 +120,14 @@ class ExtensionStatusService {
         .select('endpoint, uri, user_agent, expiration_time');
 
       if (error) {
-        console.error('❌ Erro ao buscar ps_contacts:', error);
+        logger.error('Erro ao buscar ps_contacts:', error);
         return;
       }
 
       // ✅ DEBUG: Log detalhado para investigar cache do ramal 1001
-      console.log('🔍 [DEBUG] ps_contacts encontrados:', contacts?.length || 0);
+      logger.debug('ps_contacts encontrados:', contacts?.length || 0);
       if (contacts && contacts.length > 0) {
-        console.log('🔍 [DEBUG] Endpoints na ps_contacts:');
-        contacts.forEach(c => {
-          console.log(`   - endpoint: ${c.endpoint}, expiration: ${c.expiration_time}`);
-        });
+        logger.debug('Endpoints na ps_contacts:', contacts.map(c => ({ endpoint: c.endpoint, expiration: c.expiration_time })));
       }
 
       // Extrair ramais online
@@ -144,7 +139,7 @@ class ExtensionStatusService {
         // Log apenas se mudou a quantidade de registros
         const prevCount = this.extensionStatusCache.get('contacts_count') || 0;
         if (contacts.length !== prevCount) {
-          console.log(`📡 ps_contacts: ${contacts.length} registros (mudança de ${prevCount})`);
+          logger.debug(`ps_contacts: ${contacts.length} registros (mudança de ${prevCount})`);
           this.extensionStatusCache.set('contacts_count', contacts.length);
         }
         contacts.forEach(contact => {
@@ -171,7 +166,7 @@ class ExtensionStatusService {
         .select('ramal, agente_name, user_id');
 
       if (agentsError) {
-        console.error('❌ Erro ao buscar agentes:', agentsError);
+        logger.error('Erro ao buscar agentes:', agentsError);
         return;
       }
 

@@ -24,7 +24,6 @@ services:
     container_name: pabx-backend
     ports:
       - "3001:3001"
-      - "3209:3209"
     environment:
       - NODE_ENV=production
       - REDIS_URL=redis://redis:6379
@@ -36,7 +35,31 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Transfer Service (AMI Redirect)
+  transfer:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pabx-transfer
+    command: ["node", "transfer-server.js"]
+    ports:
+      - "3209:3209"
+    environment:
+      - NODE_ENV=production
+      # Configure via .env or environment
+      - AMI_HOST=${AMI_HOST}
+      - AMI_PORT=${AMI_PORT}
+      - AMI_USER=${AMI_USER}
+      - AMI_PASSWORD=${AMI_PASSWORD}
+      - API_KEY_TRANSFER=${API_KEY_TRANSFER}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3209/health"]
       interval: 30s
       timeout: 10s
       retries: 3
