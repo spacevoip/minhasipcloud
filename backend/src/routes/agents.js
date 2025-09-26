@@ -3,7 +3,7 @@ const { authenticateToken } = require('../middleware/auth');
 const agentsService = require('../services/agentsService');
 const extensionStatusService = require('../services/extensionStatusService');
 const { supabase } = require('../config/database');
-const { body, validationResult } = require('express-validator');
+const { body, validationResult, param } = require('express-validator');
 const logger = require('../utils/logger');
 const router = express.Router();
 
