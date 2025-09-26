@@ -12,10 +12,8 @@ const cacheService = require('../services/cacheService');
 const router = express.Router();
 
 // Configuração do Supabase
-const { createClient } = require('@supabase/supabase-js');
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Usar cliente Supabase compartilhado
+const { supabase } = require('../config/database');
 
 // --- Middleware para debug de requisições
 const debugRequest = (req, res, next) => {

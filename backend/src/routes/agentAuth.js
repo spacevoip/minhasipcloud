@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { createClient } = require('@supabase/supabase-js');
+// Usar cliente Supabase compartilhado
 const { body, validationResult } = require('express-validator');
 const logger = require('../utils/logger');
 
@@ -17,7 +17,7 @@ if (!supabaseUrl || !supabaseKey) {
   logger.error('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'OK' : 'MISSING');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const { supabase } = require('../config/database');
 
 // Agent login endpoint
 router.post('/login', async (req, res) => {
