@@ -636,41 +636,9 @@ router.post('/register', registerLimiter, registerValidation, async (req, res) =
     const { name, email, password, phone, cpfCnpj, referral, turnstileToken } = req.body;
 
     // ================================
-    // Cloudflare Turnstile validation
+    // Cloudflare Turnstile validation - TEMPORARIAMENTE DESABILITADO
     // ================================
-    try {
-      const secret = process.env.TURNSTILE_SECRET_KEY;
-      if (!secret) {
-        console.warn('⚠️ TURNSTILE_SECRET_KEY não configurada. Pulando verificação (ambiente de dev?).');
-      } else {
-        if (!turnstileToken) {
-          return res.status(400).json({ success: false, message: 'Verificação humana obrigatória (captcha ausente).', code: 'TURNSTILE_MISSING' });
-        }
-
-        const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-        const remoteip = (req.headers['x-forwarded-for']?.split(',')[0] || '').trim() || req.ip;
-        const form = new URLSearchParams();
-        form.append('secret', secret);
-        form.append('response', turnstileToken);
-        if (remoteip) form.append('remoteip', remoteip);
-
-        const { data: verify } = await axios.post(verifyUrl, form.toString(), {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
-
-        if (!verify?.success) {
-          return res.status(400).json({
-            success: false,
-            message: 'Falha na verificação humana. Tente novamente.',
-            code: 'TURNSTILE_FAILED',
-            errors: verify?.['error-codes'] || []
-          });
-        }
-      }
-    } catch (tsErr) {
-      console.error('❌ Erro ao validar Turnstile:', tsErr?.message || tsErr);
-      return res.status(400).json({ success: false, message: 'Falha na validação do captcha.', code: 'TURNSTILE_ERROR' });
-    }
+    console.log('⚠️ Turnstile temporariamente desabilitado para testes de cadastro');
 
     // Normalizar CPF/CNPJ (apenas dígitos)
     const normalizedCpfCnpj = normalizeCpfCnpj(cpfCnpj);
