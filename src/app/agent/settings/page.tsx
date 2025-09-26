@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AgentLayout } from '@/components/layout/agent-layout';
-import { agentAuthService, type AgentData } from '@/services/agentAuthService';
-import { User, Phone, Shield, Eye, EyeOff, Wifi, Save } from 'lucide-react';
+import { agentAuthService } from '@/services/agentAuthService';
+import { User, Settings, Phone, Lock, Save, Eye, EyeOff } from 'lucide-react';
+import logger from '@/utils/logger';
 
 // Using AgentData from the service instead of local interface
 
@@ -38,13 +38,13 @@ export default function AgentSettings() {
 
   const loadAgentData = async () => {
     try {
-      console.log('🔄 [Settings] Carregando dados do agente...');
+      logger.debug('Carregando dados do agente...');
       
       const result = await agentAuthService.getCurrentAgent();
-      console.log('📋 [Settings] Resultado getCurrentAgent:', result);
+      logger.debug('Resultado getCurrentAgent:', result);
       
       if (result.success && result.data) {
-        console.log('✅ [Settings] Dados do agente carregados:', {
+        logger.debug('Dados do agente carregados:', {
           nome: result.data.agente_name,
           ramal: result.data.ramal,
           id: result.data.id
@@ -57,25 +57,25 @@ export default function AgentSettings() {
         if (result.data.ramal) {
           await loadAgentWithStatus(result.data.ramal);
         } else {
-          console.warn('⚠️ [Settings] Ramal não encontrado nos dados do agente');
+          logger.warn('Ramal não encontrado nos dados do agente');
         }
       } else {
-        console.log('⚠️ [Settings] Tentando dados armazenados...');
+        logger.debug('Tentando dados armazenados...');
         const storedData = agentAuthService.getStoredAgentData();
-        console.log('💾 [Settings] Dados armazenados:', storedData);
+        logger.debug('Dados armazenados:', storedData);
         
         if (storedData && storedData.ramal) {
           setAgentData(storedData);
           setFormData({ caller_id: storedData.callerid || '' });
           await loadAgentWithStatus(storedData.ramal);
         } else {
-          console.error('❌ [Settings] Nenhum dado válido encontrado');
+          logger.error('Nenhum dado válido encontrado');
           router.push('/login');
           return;
         }
       }
     } catch (error) {
-      console.error('Error loading agent data:', error);
+      logger.error('Error loading agent data:', error);
       router.push('/login');
     } finally {
       setLoading(false);
@@ -85,17 +85,17 @@ export default function AgentSettings() {
   const loadAgentWithStatus = async (ramal: string) => {
     try {
       if (!ramal || ramal === 'undefined') {
-        console.warn('⚠️ [Settings] Ramal inválido:', ramal);
+        logger.warn('Ramal inválido:', ramal);
         return;
       }
 
       const token = localStorage.getItem('agent_token');
       if (!token) {
-        console.warn('⚠️ [Settings] Token não encontrado');
+        logger.warn('Token não encontrado');
         return;
       }
 
-      console.log('🔍 [Settings] Buscando status do ramal:', ramal);
+      logger.debug('Buscando status do ramal:', ramal);
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/agents/ramal/${ramal}`, {
         headers: {
@@ -109,13 +109,13 @@ export default function AgentSettings() {
         if (data.success && data.data) {
           // Update extension status from backend
           setExtensionStatus(data.data.liveStatus === 'online' ? 'online' : 'offline');
-          console.log('✅ [Settings] Status SIP atualizado:', data.data.liveStatus);
+          logger.debug('Status SIP atualizado:', data.data.liveStatus);
         }
       } else {
-        console.error('❌ [Settings] Erro na API:', response.status, response.statusText);
+        logger.error('Erro na API:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('Error loading agent status:', error);
+      logger.error('Error loading agent status:', error);
     }
   };
 
@@ -149,7 +149,7 @@ export default function AgentSettings() {
         alert('Erro ao atualizar Caller ID');
       }
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      logger.error('Erro ao salvar:', error);
       alert('Erro ao salvar alterações');
     } finally {
       setSaving(false);
@@ -214,7 +214,7 @@ export default function AgentSettings() {
         alert(errorData.message || 'Erro ao alterar senha');
       }
     } catch (error) {
-      console.error('Erro ao alterar senha:', error);
+      logger.error('Erro ao alterar senha:', error);
       alert('Erro ao alterar senha');
     } finally {
       setPasswordLoading(false);

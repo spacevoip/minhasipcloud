@@ -48,7 +48,6 @@ import {
 } from 'lucide-react';
 import { AgentLayout } from '@/components/layout/agent-layout';
 import { TransferCallModal } from '@/components/modals/TransferCallModal';
-import { StatsCard } from '@/components/agent/StatsCard';
 import { AgentInfoPills } from '@/components/agent/AgentInfoPills';
 import { CallStatusOverlay } from '@/components/agent/CallStatusOverlay';
 import { DialerKeypad } from '@/components/agent/DialerKeypad';
@@ -58,15 +57,10 @@ import { FloatingSMSButton } from '@/components/sms/FloatingSMSButton';
 // import { useAgentData } from '@/hooks/useAgentData';
 // import { useToast } from '@/hooks/useToast';
 import { useActiveCallsOptimized, ActiveCall as OptimizedActiveCall } from '@/hooks/useActiveCallsOptimized';
-import { workSessionsService, type WorkSession, type WorkBreak } from '@/services/workSessionsService';
-import { agentAuthService, type AgentData } from '@/services/agentAuthService';
-import { authService } from '@/lib/auth';
 import { unifiedAuthService } from '@/lib/unifiedAuth';
 import { userRealtimeService } from '@/services/userRealtimeService';
-import supabase from '@/lib/supabase';
 import { agentsRealtimeService } from '@/services/agentsRealtimeService';
 import { classificationService } from '@/services/classificationService';
-import { callLogsService } from '@/services/callLogsService';
 
 // Realtime via cliente centralizado (config via env em src/lib/supabase)
 
@@ -506,7 +500,7 @@ export default function AgentDashboard() {
         showToast('Jornada finalizada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] stop error:', err);
+      logger.error('WorkTimer stop error:', err);
       showToast('Falha ao finalizar jornada', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -735,11 +729,11 @@ export default function AgentDashboard() {
   // Função para iniciar captura DTMF
   const startDTMFCapture = async (callId: string) => {
     if (!callId) {
-      console.warn('[DTMF] ID da chamada não fornecido');
+      logger.warn('DTMF ID da chamada não fornecido');
       return;
     }
 
-    console.log(`[DTMF] Iniciando captura para chamada: ${callId}`);
+    logger.debug(`DTMF iniciando captura para chamada: ${callId}`);
     
     // Limpar subscription anterior se existir
     if (dtmfSubscription) {
@@ -749,9 +743,9 @@ export default function AgentDashboard() {
     // ✅ LIMPAR DÍGITOS EXISTENTES ANTES DE INICIAR
     try {
       await clearCapturedDigits(callId);
-      console.log(`[DTMF] Dígitos anteriores limpos para chamada: ${callId}`);
+      logger.debug(`DTMF dígitos anteriores limpos para chamada: ${callId}`);
     } catch (error) {
-      console.error('[DTMF] Erro ao limpar dígitos anteriores:', error);
+      logger.error('DTMF erro ao limpar dígitos anteriores:', error);
     }
 
     // Buscar dígitos existentes (deve estar vazio após limpeza)
@@ -766,7 +760,7 @@ export default function AgentDashboard() {
         }
       }
     } catch (error) {
-      console.error('[DTMF] Erro ao buscar dígitos existentes:', error);
+      logger.error('DTMF erro ao buscar dígitos existentes:', error);
       setCapturedDigits('');
     }
 
@@ -782,7 +776,7 @@ export default function AgentDashboard() {
           filter: `id_call=eq.${callId}`
         },
         (payload) => {
-          console.log('[DTMF] Realtime update:', payload);
+          logger.debug('DTMF Realtime update:', payload);
           if (payload.new && typeof payload.new === 'object') {
             const row: any = payload.new as any;
             const digito: string = typeof row?.digito === 'string' ? row.digito : '';
@@ -799,7 +793,7 @@ export default function AgentDashboard() {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`[DTMF] Inscrito para chamada: ${callId}`);
+          logger.debug(`DTMF inscrito para chamada: ${callId}`);
         }
       });
 
@@ -809,7 +803,7 @@ export default function AgentDashboard() {
 
   // Função para parar captura DTMF
   const stopDTMFCapture = () => {
-    console.log('[DTMF] Parando captura');
+    logger.debug('DTMF parando captura');
     
     if (dtmfSubscription) {
       dtmfSubscription.unsubscribe();
@@ -842,7 +836,7 @@ export default function AgentDashboard() {
         setTimeout(() => setToast(null), 2000);
       }
     } catch (error) {
-      console.error('[DTMF] Erro ao limpar dígitos:', error);
+      logger.error('DTMF erro ao limpar dígitos:', error);
       setToast({
         message: 'Erro ao limpar dígitos',
         type: 'error'
