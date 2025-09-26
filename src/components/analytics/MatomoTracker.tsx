@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 /**
  * Matomo SPA route change tracking.
- * Assumes the base Matomo snippet has already initialized window._paq and loaded matomo.js.
+ * This component tracks page views for single-page application navigation.
  */
-export default function MatomoTracker() {
+function MatomoTrackerInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const firstRunRef = useRef(true);
@@ -34,4 +34,12 @@ export default function MatomoTracker() {
   }, [pathname, searchParams]);
 
   return null;
+}
+
+export default function MatomoTracker() {
+  return (
+    <Suspense fallback={null}>
+      <MatomoTrackerInner />
+    </Suspense>
+  );
 }

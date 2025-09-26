@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { Mail, Send, Clock, TrendingUp, Search, Filter, Plus, MoreHorizontal, Eye, Trash2, Settings, Users } from 'lucide-react';
 import DistributionModal from '@/components/DistributionModal';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -105,7 +105,7 @@ const cacheUtils = {
   }
 };
 
-export default function MailingsPage() {
+function MailingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mailings, setMailings] = useState<Mailing[]>([]);
@@ -1993,5 +1993,13 @@ export default function MailingsPage() {
         />
       )}
     </MainLayout>
+  );
+}
+
+export default function MailingsPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <MailingsPageInner />
+    </Suspense>
   );
 }

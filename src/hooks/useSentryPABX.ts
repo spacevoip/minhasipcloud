@@ -90,12 +90,14 @@ export const useSentryPABX = () => {
 
   // Performance monitoring para operações críticas
   const startTransaction = (name: string, op: string) => {
-    return Sentry.startTransaction({
+    return Sentry.startSpan({
       name: `pabx.${name}`,
       op: `pabx.${op}`,
-      tags: {
+      attributes: {
         system: "pabx",
       },
+    }, () => {
+      // Transaction body will be handled by the caller
     });
   };
 
