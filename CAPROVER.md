@@ -2,20 +2,18 @@
 
 ## Estrutura do Projeto
 
-Este projeto está configurado para deploy no CapRover usando microserviços separados:
+Este projeto usa **1 repositório + 2 branches** para deploy no CapRover:
 
-### Frontend (Next.js)
+### Frontend (Next.js) - Branch `main`
 - **App Name**: `pabx-frontend`
-- **Path**: Raiz do repositório
-- **Config**: `captain-definition` (Dockerfile + Port 3000)
-- **Dockerfile**: `./Dockerfile`
+- **Branch**: `main`
+- **Config**: `captain-definition` (dockerfileLines)
 - **Port**: 3000 (interno)
 
-### Backend (Express.js)
+### Backend (Express.js) - Branch `backend`
 - **App Name**: `pabx-backend`
-- **Path**: `/backend` folder
-- **Config**: `backend/captain-definition` (Dockerfile + Port 3001)
-- **Dockerfile**: `./backend/Dockerfile`
+- **Branch**: `backend`
+- **Config**: `captain-definition` (dockerfileLines)
 - **Port**: 3001 (interno)
 
 ## Arquivos de Configuração
@@ -43,15 +41,17 @@ Este projeto está configurado para deploy no CapRover usando microserviços sep
 ### 1. Frontend Deploy
 ```bash
 # No CapRover, criar app: pabx-frontend
-# Conectar ao repositório: branch main, path: /
-# O CapRover vai usar o Dockerfile da raiz
+# Conectar ao repositório: https://github.com/spacevoip/minhasipcloud.git
+# Branch: main
+# O CapRover vai usar o captain-definition da branch main
 ```
 
 ### 2. Backend Deploy
 ```bash
 # No CapRover, criar app: pabx-backend
-# Conectar ao repositório: branch main, path: /backend
-# O CapRover vai usar o Dockerfile do backend
+# Conectar ao repositório: https://github.com/spacevoip/minhasipcloud.git
+# Branch: backend
+# O CapRover vai usar o captain-definition da branch backend
 ```
 
 ## Variáveis de Ambiente
