@@ -105,7 +105,6 @@ export default function AgentDashboard() {
 
   // Filtrar chamadas baseado na busca e filtros (como /active-calls) - OTIMIZADO com useMemo
   const filteredCalls = useMemo(() => {
-    console.log(`[SECURITY] Filtrando ${localCalls.length} chamadas para ramal ${agentData?.ramal}`);
     
     return localCalls.filter(call => {
       // Filtro de busca
@@ -134,7 +133,6 @@ export default function AgentDashboard() {
         
         // Filtro rigoroso: deve ser exatamente o ramal do agente
         if (callExtension !== agentExtension) {
-          console.log(`[SECURITY] Chamada filtrada: ${callExtension} !== ${agentExtension}`);
           return false;
         }
         
@@ -146,10 +144,6 @@ export default function AgentDashboard() {
     }).filter((call, index, array) => {
       // Log final do resultado da filtragem
       if (index === array.length - 1) {
-        console.log(`[SECURITY] ✅ Resultado: ${array.length} chamadas aprovadas para ramal ${agentData?.ramal}`);
-        array.forEach((c, i) => {
-          console.log(`[SECURITY] Chamada ${i + 1}: extension=${c.extension}, caller=${c.callerid}, destination=${c.destination}`);
-        });
       }
       return true;
     });
@@ -284,7 +278,6 @@ export default function AgentDashboard() {
           }
         }
       } catch (err) {
-        console.warn('[WorkTimer] Falha ao sincronizar sessão ativa:', err);
       } finally {
         setWorkLoading(false);
       }
@@ -331,7 +324,6 @@ export default function AgentDashboard() {
       if (resp.status === 204) return null;
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '');
-        console.warn('⚠️ [AutoDialer] /next falhou:', resp.status, txt);
         return null;
       }
       const data = await resp.json();
@@ -345,7 +337,6 @@ export default function AgentDashboard() {
       } as NormalizedContact;
       return normalized;
     } catch (e) {
-      console.warn('⚠️ [AutoDialer] Erro ao obter próximo contato:', e);
       return null;
     }
   };
@@ -404,7 +395,6 @@ export default function AgentDashboard() {
         } catch {}
       }
     } catch (e) {
-      console.warn('⚠️ [AutoDialer] Erro ao obter lote do discador:', e);
     }
     return results;
   };
@@ -448,7 +438,6 @@ export default function AgentDashboard() {
         showToast('Jornada iniciada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] start error:', err);
       showToast('Falha ao iniciar jornada', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -470,7 +459,6 @@ export default function AgentDashboard() {
         showToast('Pausa iniciada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] pause error:', err);
       showToast('Falha ao iniciar pausa', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -499,7 +487,6 @@ export default function AgentDashboard() {
         showToast('Pausa encerrada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] resume error:', err);
       showToast('Falha ao encerrar pausa', 'error');
     } finally {
       setWorkActionLoading(false);

@@ -52,17 +52,6 @@ class AuthService {
     try {
       logger.info('🔐 Tentando login via API backend para:', credentials.email);
 
-      // Try to read Cloudflare Turnstile token from the rendered widget's hidden input
-      let turnstileToken: string | null = null;
-      if (typeof window !== 'undefined') {
-        try {
-          const input = document.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement | null;
-          if (input && input.value) {
-            turnstileToken = input.value;
-          }
-        } catch {}
-      }
-
       // Chamar API de login do backend
       const response = await fetch(`${API_BASE_URL}/api/auth-v2/login`, {
         method: 'POST',
@@ -71,9 +60,7 @@ class AuthService {
         },
         body: JSON.stringify({
           email: credentials.email,
-          password: credentials.password,
-          // Cloudflare Turnstile token (if present)
-          turnstileToken: turnstileToken || undefined
+          password: credentials.password
         })
       });
 
@@ -148,17 +135,6 @@ class AuthService {
     try {
       logger.info('🆕 Tentando cadastro via API backend para:', data.email);
 
-      // Try to read Cloudflare Turnstile token from the rendered widget's hidden input
-      let turnstileToken: string | null = null;
-      if (typeof window !== 'undefined') {
-        try {
-          const input = document.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement | null;
-          if (input && input.value) {
-            turnstileToken = input.value;
-          }
-        } catch {}
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/auth-v2/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,9 +146,7 @@ class AuthService {
           cpfCnpj: data.cpfCnpj || null,
           referral: data.referral || '',
           // backend valida equals('true'), então enviar string 'true' quando aceito
-          termsAccepted: data.termsAccepted ? 'true' : 'false',
-          // Cloudflare Turnstile token (if present)
-          turnstileToken: turnstileToken || undefined
+          termsAccepted: data.termsAccepted ? 'true' : 'false'
         })
       });
 

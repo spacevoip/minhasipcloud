@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') });
 
+// Logger profissional
+const logger = require('./utils/logger');
+
 // Importar configurações e rotas
 const { testConnection } = require('./config/database');
 const cacheService = require('./services/cacheService');
@@ -259,25 +262,25 @@ app.use((error, req, res, next) => {
 const startServer = async () => {
   try {
     // Testar conexão com banco
-    console.log('🔄 Testando conexão com banco de dados...');
+    logger.system('Testando conexão com banco de dados...');
     const dbConnected = await testConnection();
     
     if (!dbConnected) {
-      console.error('❌ Falha na conexão com banco de dados');
+      logger.error('Falha na conexão com banco de dados');
       process.exit(1);
     }
     
     // Inicializar Redis Cache
-    console.log('🔄 Inicializando Redis Cache...');
+    logger.system('Inicializando Redis Cache...');
     const cacheConnected = await cacheService.connect();
     
     if (!cacheConnected) {
-      console.warn('⚠️ Redis não disponível - continuando sem cache');
+      logger.warn('Redis não disponível - continuando sem cache');
     } else {
-      console.log('✅ Redis Cache conectado com sucesso!');
+      logger.system('Redis Cache conectado com sucesso!');
       
       // Executar Cache Warming
-      console.log('🔥 Iniciando Cache Warming...');
+      logger.system('Iniciando Cache Warming...');
       setTimeout(async () => {
         await cacheWarmingService.warmCache();
         await cacheWarmingService.scheduleRewarming();
@@ -285,101 +288,71 @@ const startServer = async () => {
     }
     
     // Inicializar monitoramento de ramais
-    console.log('🔄 Inicializando monitoramento de ramais...');
+    logger.system('Inicializando monitoramento de ramais...');
     extensionStatusService.startMonitoring();
-    console.log('✅ Monitoramento de ramais iniciado (5s)!');
+    logger.system('Monitoramento de ramais iniciado (5s)!');
     
     // Inicializar AMI Service para chamadas ativas em tempo real
-    console.log('🔄 Inicializando AMI Service...');
+    logger.system('Inicializando AMI Service...');
     try {
       await amiService.connect();
-      console.log('✅ AMI Service conectado e monitorando eventos!');
+      logger.system('AMI Service conectado e monitorando eventos!');
     } catch (amiError) {
-      console.warn('⚠️ AMI Service falhou ao conectar, usando apenas ARI fallback:', amiError.message);
+      logger.warn('AMI Service falhou ao conectar, usando apenas ARI fallback:', amiError.message);
     }
     
     // Inicializar captura de DTMF (AMI + Postgres), configs via backend/.env.local
-    console.log('🔄 Iniciando DTMF Capture Service...');
+    logger.system('Iniciando DTMF Capture Service...');
     try {
       const started = await dtmfCaptureService.start();
       if (started) {
-        console.log('✅ DTMF Capture Service iniciado e ouvindo eventos DTMF');
+        logger.system('DTMF Capture Service iniciado e ouvindo eventos DTMF');
       } else {
-        console.warn('⚠️ DTMF Capture Service não iniciado (variáveis de ambiente ausentes)');
+        logger.warn('DTMF Capture Service não iniciado (variáveis de ambiente ausentes)');
       }
     } catch (dtmfErr) {
-      console.error('❌ Falha ao iniciar DTMF Capture Service:', dtmfErr?.message || dtmfErr);
+      logger.error('Falha ao iniciar DTMF Capture Service:', dtmfErr?.message || dtmfErr);
     }
     
     // Iniciar servidor
     app.listen(PORT, () => {
-      console.log('🚀 ===================================');
-      console.log(`🚀 PABX System API iniciada!`);
-      console.log(`🚀 Porta: ${PORT}`);
-      console.log(`🚀 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🚀 URL: http://localhost:${PORT}`);
-      console.log('🚀 ===================================');
-      console.log('📋 Rotas disponíveis:');
-      console.log('   GET  /health - Health check');
-      console.log('   POST /api/auth/login - Login');
-      console.log('   POST /api/auth/logout - Logout');
-      console.log('   GET  /api/auth/me - Dados do usuário');
-      console.log('   POST /api/auth/refresh - Renovar token');
-      console.log('   POST /api/auth/change-password - Alterar senha');
-      console.log('   GET  /api/users-v2 - Lista de usuários (admin/collab)');
-      console.log('   GET  /api/users-v2/:id - Usuário por ID');
-      console.log('   POST /api/users-v2 - Criar usuário (admin/collab)');
-      console.log('   PUT  /api/users-v2/:id - Atualizar usuário');
-      console.log('   DELETE /api/users-v2/:id - Excluir usuário (admin)');
-      console.log('   GET  /api/v2/plans - Buscar todos os planos (v2)');
-      console.log('   GET  /api/v2/plans/:id - Buscar plano por ID (v2)');
-      console.log('   POST /api/v2/plans - Criar plano (v2, admin)');
-      console.log('   PUT  /api/v2/plans/:id - Atualizar plano (v2, admin)');
-      console.log('   DELETE /api/v2/plans/:id - Excluir plano (v2, admin)');
-      console.log('   GET  /api/extension-status - Status de todos os ramais');
-      console.log('   GET  /api/extension-status/:extension - Status de um ramal');
-      console.log('   GET  /api/extension-status/stats/monitoring - Estatísticas do monitoramento');
-      console.log('   POST /api/extension-status/start - Iniciar monitoramento');
-      console.log('   POST /api/extension-status/stop - Parar monitoramento');
-      console.log('   GET  /api/ramal-status/:ramal - Status simples de um ramal');
-      console.log('   POST /api/ramal-status/check - Verificar múltiplos ramais');
-      console.log('   GET  /api/cdr - Listar CDR do usuário autenticado');
-      console.log('   GET  /api/active-calls?accountcode=UUID - Chamadas ativas (com filtro opcional)');
-      console.log('   GET  /api/terminations - Listar troncos e taxa de sucesso');
-      console.log('   GET  /api/notifications - Listar notificações');
-      console.log('   POST /api/notifications - Criar notificação');
-      console.log('   PUT  /api/notifications/:id - Atualizar notificação');
-      console.log('   DELETE /api/notifications/:id - Excluir notificação');
-      console.log('   GET  /api/notifications/:id/recipients - Listar destinatários');
-      console.log('   GET  /api/finance - Listar transações (admin/reseller)');
-      console.log('🚀 ===================================');
+      logger.system('===================================');
+      logger.system(`PABX System API iniciada!`);
+      logger.system(`Porta: ${PORT}`);
+      logger.system(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      logger.system(`URL: http://localhost:${PORT}`);
+      logger.system('===================================');
+      // Rotas disponíveis apenas em desenvolvimento
+      if (process.env.NODE_ENV !== 'production') {
+        logger.debug('Rotas disponíveis: /health, /api/auth/*, /api/users-v2/*, /api/v2/plans/*, etc.');
+      }
     });
     
   } catch (error) {
-    console.error('❌ Erro ao iniciar servidor:', error);
+    logger.error('Erro ao iniciar servidor:', error);
     process.exit(1);
   }
 };
 
 // Tratamento de sinais do sistema
 process.on('SIGTERM', () => {
-  console.log('📴 SIGTERM recebido. Encerrando servidor...');
+  logger.system('SIGTERM recebido. Encerrando servidor...');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('📴 SIGINT recebido. Encerrando servidor...');
+  logger.system('SIGINT recebido. Encerrando servidor...');
   process.exit(0);
 });
 
 // Tratamento de erros não capturados
 process.on('uncaughtException', (error) => {
-  console.error('❌ Erro não capturado:', error);
+  logger.error('Erro não capturado:', error);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Promise rejeitada não tratada:', reason);
+  logger.error('Promise rejeitada não tratada:', reason);
   process.exit(1);
 });
 

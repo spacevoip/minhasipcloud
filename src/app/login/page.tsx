@@ -1671,23 +1671,6 @@ function LoginContent() {
               </>
             )}
 
-            {authTab === 'signup' && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-              <div className="card">
-                <h3>Verificação</h3>
-                <div className="form-group">
-                  {/* Cloudflare Turnstile widget (explicit) */}
-                  <div
-                    className="cf-turnstile"
-                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                    data-theme="light"
-                    data-appearance="always"
-                  />
-                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
-                    Esta verificação protege contra cadastros automatizados.
-                  </div>
-                </div>
-              </div>
-            )}
 
 
             {error && error !== 'plan_expired' && (
@@ -1793,10 +1776,6 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <ToastProvider>
-      {/* Cloudflare Turnstile script (only load if configured) */}
-      {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" async defer />
-      )}
       <LoginContent />
     </ToastProvider>
   );

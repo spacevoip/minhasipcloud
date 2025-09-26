@@ -1,0 +1,74 @@
+# =====================================================
+# GITIGNORE PARA PRODUÇÃO - PABX SYSTEM
+# Arquivos que NÃO devem ir para produção
+# =====================================================
+
+# Arquivos de teste e debug
+test*.js
+*test.js
+testsms.js
+testami.js
+testeami.js
+testredis.js
+test-*.js
+*-test.js
+
+# Arquivos de desenvolvimento
+*.backup
+*.bak
+*.old
+*.tmp
+*-broken.*
+*-old.*
+*-backup.*
+page-broken.*
+page-old.*
+
+# Logs de desenvolvimento
+*.log
+logs/
+debug.log
+error.log
+
+# Configurações locais
+.env.local
+.env.development
+.env.test
+backend/.env.local
+
+# Cache e builds
+.next/
+dist/
+build/
+node_modules/
+.cache/
+
+# Arquivos temporários
+*.pid
+*.seed
+*.pid.lock
+.DS_Store
+Thumbs.db
+
+# Arquivos de análise
+redis-*.js
+cache-*.js
+setup-*.js
+verify-*.js
+check-*.js
+
+# Scripts de análise específicos
+redis-free-tier-analysis.js
+redis-scalability-analysis.js
+cache-flow-demo.js
+
+# Arquivos de configuração de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Certificados (devem ser configurados no servidor)
+*.pem
+*.key
+*.crt
