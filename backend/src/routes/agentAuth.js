@@ -6,16 +6,7 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
-// Supabase client - usando as mesmas configurações dos outros arquivos
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  logger.error('Variáveis de ambiente do Supabase não configuradas para agentAuth');
-  logger.error('SUPABASE_URL:', supabaseUrl ? 'OK' : 'MISSING');
-  logger.error('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'OK' : 'MISSING');
-  logger.error('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'OK' : 'MISSING');
-}
+// Configuração do Supabase centralizada em config/database
 
 const { supabase } = require('../config/database');
 

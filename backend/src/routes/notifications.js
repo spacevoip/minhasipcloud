@@ -11,9 +11,7 @@ const cacheService = require('../services/cacheService');
 
 const router = express.Router();
 
-// Configuração do Supabase
-// Usar cliente Supabase compartilhado
-const { supabase } = require('../config/database');
+// Configuração do Supabase já importada no topo
 
 // --- Middleware para debug de requisições
 const debugRequest = (req, res, next) => {
