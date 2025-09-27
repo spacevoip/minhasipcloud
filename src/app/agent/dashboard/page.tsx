@@ -1668,6 +1668,22 @@ export default function AgentDashboard() {
           console.log('📞 Chamada em progresso');
           setCallStatus('ringing');
           callRangRef.current = true;
+          
+          // Configurar som de chamando (ringback)
+          try {
+            const ringbackAudio = document.getElementById('ringbackAudio') as HTMLAudioElement;
+            if (ringbackAudio) {
+              // Usar tom de chamada padrão do navegador ou stream remoto se disponível
+              const remoteStream = session.connection?.getRemoteStreams?.()?.[0];
+              if (remoteStream) {
+                ringbackAudio.srcObject = remoteStream;
+                ringbackAudio.play().catch(e => console.warn('⚠️ Erro ao reproduzir ringback:', e));
+                console.log('🔔 Som de chamando configurado');
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Erro ao configurar som de chamando:', error);
+          }
         });
         
         session.on('confirmed', () => {
@@ -1675,6 +1691,18 @@ export default function AgentDashboard() {
           setCallStatus('connected');
           setCallDuration(0);
           callConfirmedRef.current = true;
+          
+          // Parar som de chamando
+          try {
+            const ringbackAudio = document.getElementById('ringbackAudio') as HTMLAudioElement;
+            if (ringbackAudio) {
+              ringbackAudio.pause();
+              ringbackAudio.srcObject = null;
+              console.log('🔇 Som de chamando parado');
+            }
+          } catch (error) {
+            console.warn('⚠️ Erro ao parar som de chamando:', error);
+          }
           
           // Configurar áudio da chamada
           try {
@@ -7717,6 +7745,11 @@ const resumeAutoDialer = () => {
         autoPlay 
         playsInline 
         muted 
+        style={{ display: 'none' }}
+      />
+      <audio 
+        id="ringbackAudio" 
+        loop 
         style={{ display: 'none' }}
       />
 
