@@ -1085,8 +1085,20 @@ export default function AgentDashboard() {
       // Discar via WebRTC diretamente
       const session = webrtcUA.call(`sip:${nextContact.number}@minhasip.cloud`, {
         sessionTimersExpires: 120,
-        mediaConstraints: { audio: true, video: false },
-        rtcConfiguration: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        mediaConstraints: { 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }, 
+          video: false 
+        },
+        rtcConfiguration: { 
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
       });
       setWebrtcSession(session);
       setCallStatus('calling');
@@ -1609,7 +1621,16 @@ export default function AgentDashboard() {
         uri: `sip:${agentData.ramal}@minhasip.cloud`,
         password: webrtcPassword,
         session_timers: false,
-        register: true
+        register: true,
+        // Configurações aprimoradas para WebRTC
+        pcConfig: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+          ],
+          iceCandidatePoolSize: 10
+        }
       });
 
       ua.on('connected', () => {
@@ -1655,6 +1676,29 @@ export default function AgentDashboard() {
           setCallDuration(0);
           callConfirmedRef.current = true;
           
+          // Configurar áudio da chamada
+          try {
+            // Configurar áudio remoto (da pessoa que atendeu)
+            const remoteStream = session.connection.getRemoteStreams()[0];
+            const remoteAudio = document.getElementById('remoteAudio') as HTMLAudioElement;
+            if (remoteAudio && remoteStream) {
+              remoteAudio.srcObject = remoteStream;
+              remoteAudio.play().catch(e => console.warn('⚠️ Erro ao reproduzir áudio remoto:', e));
+              console.log('🔊 Áudio remoto configurado');
+            }
+            
+            // Configurar áudio local (nosso microfone) - opcional para monitoramento
+            const localStream = session.connection.getLocalStreams()[0];
+            const localAudio = document.getElementById('localAudio') as HTMLAudioElement;
+            if (localAudio && localStream) {
+              localAudio.srcObject = localStream;
+              // Não reproduzir áudio local para evitar feedback
+              console.log('🎤 Áudio local configurado (mudo)');
+            }
+          } catch (error) {
+            console.error('❌ Erro ao configurar áudio:', error);
+          }
+          
           // Iniciar contador de tempo
           const timer = setInterval(() => {
             setCallDuration(prev => prev + 1);
@@ -1670,6 +1714,23 @@ export default function AgentDashboard() {
         session.on('ended', (e: any) => {
           console.log('📞 Chamada WebRTC encerrada:', e);
           void finalizeAndLogCall('ended', e);
+          
+          // Limpar áudio
+          try {
+            const remoteAudio = document.getElementById('remoteAudio') as HTMLAudioElement;
+            const localAudio = document.getElementById('localAudio') as HTMLAudioElement;
+            if (remoteAudio) {
+              remoteAudio.srcObject = null;
+              remoteAudio.pause();
+            }
+            if (localAudio) {
+              localAudio.srcObject = null;
+              localAudio.pause();
+            }
+            console.log('🔇 Áudio limpo após encerrar chamada');
+          } catch (error) {
+            console.warn('⚠️ Erro ao limpar áudio:', error);
+          }
           
           // Limpar flag de hangup intencional se existir
           if (session._isIntentionalHangup) {
@@ -1790,7 +1851,20 @@ export default function AgentDashboard() {
 
     try {
       const options = {
-        mediaConstraints: { audio: true, video: false }
+        mediaConstraints: { 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }, 
+          video: false 
+        },
+        rtcConfiguration: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
       };
 
       setCallTarget(dialNumber);
@@ -7631,11 +7705,18 @@ const resumeAutoDialer = () => {
         }
       `}</style>
       
-      {/* Hidden audio element for remote audio */}
+      {/* Hidden audio elements for WebRTC */}
       <audio 
         id="remoteAudio" 
         autoPlay 
         playsInline 
+        style={{ display: 'none' }}
+      />
+      <audio 
+        id="localAudio" 
+        autoPlay 
+        playsInline 
+        muted 
         style={{ display: 'none' }}
       />
 
