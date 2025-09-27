@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Users, Calendar, Filter, Download, Plus, X, Search } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import logger from '@/utils/logger';
+import { useEffect, useMemo, useState } from 'react';
+import { DollarSign, TrendingUp, TrendingDown, Download, Calendar, Filter, CreditCard, Users, Building, ArrowUpRight, ArrowDownRight, Plus, X, Save, Eye, Receipt } from 'lucide-react';
+import { MainLayout } from '@/components/layout/main-layout';
+import { useToast } from '@/components/ui/toast';
+import { ResponsiveCard, useIsMobile } from '@/components/ui/responsive-card';
+import { Pagination, usePagination } from '@/components/ui/pagination';
+import { DataExport } from '@/components/ui/data-export';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { financeService, FinanceRecord } from '@/lib/financeService';
 import { usersService } from '@/services/usersService';
 import { plansService } from '@/services/plansService';
@@ -148,7 +152,7 @@ export default function AdminFinancialPage() {
 
         setTransactions(enriched);
       } catch (e: any) {
-        logger.error('Erro ao carregar transações:', e);
+        console.error(e);
         setError(e.message || 'Erro ao carregar transações');
         toast.error('Erro', e.message || 'Erro ao carregar transações');
       } finally {
@@ -301,7 +305,7 @@ export default function AdminFinancialPage() {
       closeTransactionModal();
       toast.success('Sucesso', 'Lançamento realizado com sucesso!');
     } catch (error) {
-      logger.error('Erro ao realizar lançamento:', error);
+      console.error('Erro ao realizar lançamento:', error);
       toast.error('Erro', 'Erro ao realizar lançamento. Tente novamente.');
     }
     finally {

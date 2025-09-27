@@ -1,14 +1,21 @@
 const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
-// Usar cliente Supabase compartilhado
-const { body, validationResult } = require('express-validator');
-const logger = require('../utils/logger');
 
 const router = express.Router();
 
-// Configuração do Supabase centralizada em config/database
+// Supabase client - usando as mesmas configurações dos outros arquivos
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-const { supabase } = require('../config/database');
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Variáveis de ambiente do Supabase não configuradas para agentAuth');
+  console.error('SUPABASE_URL:', supabaseUrl ? 'OK' : 'MISSING');
+  console.error('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'OK' : 'MISSING');
+  console.error('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'OK' : 'MISSING');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Agent login endpoint
 router.post('/login', async (req, res) => {
@@ -23,7 +30,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    logger.auth(`Tentativa de login - Ramal: ${ramal}`);
+    console.log(`[AGENT AUTH] Tentativa de login - Ramal: ${ramal}`);
 
     // Query agent from database
     const { data: agent, error } = await supabase
@@ -54,7 +61,7 @@ router.post('/login', async (req, res) => {
       .single();
 
     if (error || !agent) {
-      logger.warn(`Login falhou - Ramal: ${ramal}, Error:`, error?.message);
+      console.log(`[AGENT AUTH] Login falhou - Ramal: ${ramal}, Error:`, error?.message);
       return res.status(401).json({
         success: false,
         message: 'Ramal ou senha inválidos'
@@ -63,7 +70,7 @@ router.post('/login', async (req, res) => {
 
     // Check if agent is blocked (ramal suspenso/bloqueado)
     if (agent.bloqueio) {
-      logger.warn(`Ramal bloqueado - Ramal: ${ramal}`);
+      console.log(`[AGENT AUTH] Ramal bloqueado - Ramal: ${ramal}`);
       return res.status(403).json({
         success: false,
         message: 'Ramal bloqueado. Entre em contato com o administrador.'
@@ -74,14 +81,14 @@ router.post('/login', async (req, res) => {
     // If the owning account is suspended, do not allow agent login
     const ownerStatus = agent?.users_pabx?.status;
     if (ownerStatus === 'suspended') {
-      logger.warn(`Conta do dono suspensa - Ramal: ${ramal}`);
+      console.log(`[AGENT AUTH] Conta do dono suspensa - Ramal: ${ramal}`);
       return res.status(403).json({
         success: false,
         message: 'Conta suspensa. Entre em contato com o suporte.'
       });
     }
     if (ownerStatus === 'inactive' || ownerStatus === false) {
-      logger.warn(`Conta do dono inativa - Ramal: ${ramal}`);
+      console.log(`[AGENT AUTH] Conta do dono inativa - Ramal: ${ramal}`);
       return res.status(403).json({
         success: false,
         message: 'Conta inativa. Entre em contato com o suporte.'
@@ -93,7 +100,7 @@ router.post('/login', async (req, res) => {
     const ownerPlanExpiresAt = agent?.users_pabx?.plan_expires_at ?? agent?.users_pabx?.planExpiresAt;
     const ownerPlanExpiredByDate = ownerPlanExpiresAt ? (new Date(ownerPlanExpiresAt).getTime() <= Date.now()) : false;
     if (ownerPlanStatus === false || ownerPlanExpiredByDate) {
-      logger.warn(`Plano do dono expirado/inativo - Ramal: ${ramal}`);
+      console.log(`[AGENT AUTH] Plano do dono expirado/inativo - Ramal: ${ramal}`);
       return res.status(403).json({
         success: false,
         message: 'Plano do proprietário expirado ou inativo. Entre em contato com o suporte.'
@@ -127,7 +134,7 @@ router.post('/login', async (req, res) => {
       })
       .eq('id', agent.id);
 
-    logger.auth(`Login bem-sucedido - Ramal: ${ramal}, Agente: ${agent.agente_name}`);
+    console.log(`[AGENT AUTH] Login bem-sucedido - Ramal: ${ramal}, Agente: ${agent.agente_name}`);
 
     // Return success response
     res.json({
@@ -151,7 +158,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro no login:', error);
+    console.error('[AGENT AUTH] Erro no login:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
@@ -189,7 +196,7 @@ router.post('/logout', async (req, res) => {
       })
       .eq('id', decoded.id);
 
-    logger.auth(`Logout - Ramal: ${decoded.ramal}, Agente: ${decoded.agente_name}`);
+    console.log(`[AGENT AUTH] Logout - Ramal: ${decoded.ramal}, Agente: ${decoded.agente_name}`);
 
     res.json({
       success: true,
@@ -197,7 +204,7 @@ router.post('/logout', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro no logout:', error);
+    console.error('[AGENT AUTH] Erro no logout:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
@@ -283,7 +290,7 @@ router.get('/me', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar dados do agente:', error);
+    console.error('[AGENT AUTH] Erro ao buscar dados do agente:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
@@ -357,7 +364,7 @@ router.get('/ramal-status', async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Erro no ramal-status:', error);
+    console.error('[AGENT AUTH] Erro no ramal-status:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'

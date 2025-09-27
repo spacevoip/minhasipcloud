@@ -7,13 +7,16 @@
  */
 
 const express = require('express');
-// Cliente Supabase compartilhado
+const { createClient } = require('@supabase/supabase-js');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Usar cliente Supabase compartilhado
-const { supabase } = require('../config/database');
+// Inicializar Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 // Normalizar ramal (remover prefixos sip:, etc)
 function normalizeRamal(ramal) {

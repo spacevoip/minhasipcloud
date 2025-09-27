@@ -1,10 +1,8 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
-const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const bcrypt = require('bcrypt');
-const { pool } = require('../config/database');
-const logger = require('../utils/logger');
+const User = require('../models/User');
+const { authenticateToken } = require('../middleware/auth');
 const { sanitizeUserOutput } = require('../utils/sanitize');
 
 const router = express.Router();
@@ -19,7 +17,7 @@ router.use(authenticateToken);
 // =====================================================
 router.get('/', async (req, res) => {
   try {
-    logger.api('Buscando usuários...');
+    console.log('📋 Buscando usuários...');
     
     // Verificar se é admin
     if (req.user.role !== 'admin') {
@@ -57,7 +55,7 @@ router.get('/', async (req, res) => {
       User.count(filters)
     ]);
 
-    logger.debug(`${users.length} usuários encontrados`);
+    console.log(`✅ ${users.length} usuários encontrados`);
 
     res.json({
       success: true,
@@ -73,7 +71,7 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar usuários:', error);
+    console.error('❌ Erro ao buscar usuários:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor'
@@ -86,7 +84,7 @@ router.get('/', async (req, res) => {
 // =====================================================
 router.get('/stats/counts-by-plan', async (req, res) => {
   try {
-    logger.api('Buscando contadores de usuários por plano...');
+    console.log('📊 Buscando contadores de usuários por plano...');
 
     // Apenas administradores
     if (req.user.role !== 'admin') {
@@ -107,17 +105,18 @@ router.get('/stats/counts-by-plan', async (req, res) => {
     `);
 
     if (!result || !result.rows) {
-      logger.error('Erro ao buscar usuários para contagem');
+      console.error('❌ Erro ao buscar usuários para contagem');
       return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
     }
 
     const users = result.rows;
 
-    logger.debug(`Total de usuários encontrados: ${users?.length || 0}`);
-    logger.debug('Usuários encontrados:', users?.map(u => ({
+    console.log(`📊 Total de usuários encontrados: ${users?.length || 0}`);
+    console.log('📋 Usuários encontrados:', users?.map(u => ({
       id: u.id,
       plan_id: u.plan_id,
       role: u.role,
+      status: u.status,
       plan_status: u.plan_status
     })));
 
@@ -127,7 +126,7 @@ router.get('/stats/counts-by-plan', async (req, res) => {
     for (const u of users || []) {
       // VALIDAÇÃO EXTRA: Ignorar usuários com plan_id null/undefined/vazio
       if (!u.plan_id || u.plan_id === null || u.plan_id === undefined || u.plan_id === '') {
-        logger.debug(`Usuário ${u.id} ignorado (plan_id: ${u.plan_id})`);
+        console.log(`⏭️  Usuário ${u.id} ignorado (plan_id: ${u.plan_id})`);
         continue;
       }
       
@@ -145,20 +144,20 @@ router.get('/stats/counts-by-plan', async (req, res) => {
       }
       
       if (!allowed) {
-        logger.debug(`Usuário ${u.id} ignorado (plan_status: ${u.plan_status})`);
+        console.log(`⏭️  Usuário ${u.id} ignorado (plan_status: ${u.plan_status})`);
         continue;
       }
       
       const key = String(u.plan_id);
       counts[key] = (counts[key] || 0) + 1;
-      logger.debug(`Usuário ${u.id} contabilizado no plano ${key}`);
+      console.log(`✅ Usuário ${u.id} contabilizado no plano ${key}`);
     }
 
-    logger.debug('Contadores por plano calculados:', counts);
+    console.log('✅ Contadores por plano calculados:', counts);
 
     return res.json({ success: true, data: counts });
   } catch (error) {
-    logger.error('Erro ao calcular contadores por plano:', error);
+    console.error('❌ Erro ao calcular contadores por plano:', error);
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
   }
 });
@@ -168,7 +167,7 @@ router.get('/stats/counts-by-plan', async (req, res) => {
 // =====================================================
 router.get('/stats/overview', async (req, res) => {
   try {
-    logger.api('Buscando estatísticas de usuários...');
+    console.log('📊 Buscando estatísticas de usuários...');
 
     // Verificar se é admin
     if (req.user.role !== 'admin') {
@@ -205,7 +204,7 @@ router.get('/stats/overview', async (req, res) => {
       usersByRole: usersByRoleResult.rows
     };
 
-    logger.debug('Estatísticas calculadas');
+    console.log('✅ Estatísticas calculadas');
 
     res.json({
       success: true,
@@ -213,7 +212,7 @@ router.get('/stats/overview', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar estatísticas:', error);
+    console.error('❌ Erro ao buscar estatísticas:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor'

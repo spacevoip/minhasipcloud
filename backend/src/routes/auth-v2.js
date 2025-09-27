@@ -7,16 +7,15 @@
  */
 
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const axios = require('axios');
-const { supabase } = require('../config/database');
 const User = require('../models/User');
 const cacheService = require('../services/cacheService');
-const logger = require('../utils/logger');
 const { sanitizeUserOutput } = require('../utils/sanitize');
+const { supabase } = require('../config/database');
 
 const router = express.Router();
 
@@ -83,7 +82,7 @@ const registerValidation = [
 // =====================================================
 router.post('/login', authLimiter, loginValidation, async (req, res) => {
   try {
-    logger.auth('Tentativa de login...');
+    console.log('🔐 [Auth V2] Tentativa de login...');
     const clientIp = (req.headers['x-forwarded-for']?.split(',')[0] || '').trim() || req.ip;
 
     // Verificar erros de validação
@@ -104,7 +103,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
     try {
       const secret = process.env.TURNSTILE_SECRET_KEY;
       if (!secret) {
-        logger.warn('TURNSTILE_SECRET_KEY não configurada. Pulando verificação (ambiente de dev?).');
+        console.warn('⚠️ TURNSTILE_SECRET_KEY não configurada. Pulando verificação (ambiente de dev?).');
       } else {
         if (!turnstileToken) {
           return res.status(400).json({ success: false, message: 'Verificação humana obrigatória (captcha ausente).', code: 'TURNSTILE_MISSING' });
@@ -131,17 +130,17 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
         }
       }
     } catch (tsErr) {
-      logger.error('Erro ao validar Turnstile (login):', tsErr?.message || tsErr);
+      console.error('❌ Erro ao validar Turnstile (login):', tsErr?.message || tsErr);
       return res.status(400).json({ success: false, message: 'Falha na validação do captcha.', code: 'TURNSTILE_ERROR' });
     }
 
-    logger.debug(`Buscando usuário: ${email}`);
+    console.log(`🔍 Buscando usuário: ${email}`);
 
     // Buscar usuário na base
     const user = await User.findByEmail(email);
     
     if (!user) {
-      logger.warn('Usuário não encontrado');
+      console.log('❌ Usuário não encontrado');
       return res.status(401).json({
         success: false,
         message: 'Email ou senha incorretos'
@@ -150,7 +149,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
 
     // Verificar se usuário está ativo
     if (user.status !== 'active') {
-      logger.warn(`Usuário com status: ${user.status}`);
+      console.log(`❌ Usuário com status: ${user.status}`);
       
       // Mensagem específica para usuários suspensos
       if (user.status === 'suspended') {
@@ -170,16 +169,16 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
     }
 
     // Debug: Verificar dados do usuário
-    logger.debug('Dados do usuário encontrado:', {
+    console.log('🔍 Dados do usuário encontrado:', {
       id: user.id,
       email: user.email,
       password_hash: user.password_hash ? 'EXISTS' : 'UNDEFINED',
-      status: user.status
+      password_hash_length: user.password_hash ? user.password_hash.length : 0
     });
 
     // Verificar se password_hash existe
     if (!user.password_hash) {
-      logger.error('Password hash não encontrado para usuário:', user.email);
+      console.log('❌ Password hash não encontrado para usuário:', user.email);
       return res.status(500).json({
         success: false,
         message: 'Erro interno do servidor',
@@ -188,11 +187,11 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
     }
 
     // Verificar senha
-    logger.debug('Comparando senha...');
+    console.log('🔐 Comparando senha...');
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     
     if (!isPasswordValid) {
-      logger.warn('Senha incorreta');
+      console.log('❌ Senha incorreta');
       return res.status(401).json({
         success: false,
         message: 'Email ou senha incorretos'
@@ -217,7 +216,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
 
     // Atualizar último login e IP
     await User.updateLastLogin(user.id);
-    try { await User.updateLastIp(user.id, clientIp); } catch (e) { logger.warn('Falha ao atualizar last_ip:', e?.message || e); }
+    try { await User.updateLastIp(user.id, clientIp); } catch (e) { console.warn('⚠️  Falha ao atualizar last_ip:', e?.message || e); }
 
     // Dados do usuário para resposta (sem senha)
     const daysRemaining = (() => {
@@ -290,7 +289,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
       userAgent: req.get('User-Agent')
     }, 24 * 60 * 60); // 24 horas
 
-    logger.auth(`Login realizado com sucesso: ${user.name} (${user.role})`);
+    console.log(`✅ Login realizado com sucesso: ${user.name} (${user.role})`);
 
     res.json({
       success: true,
@@ -307,7 +306,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro no login:', error);
+    console.error('❌ Erro no login:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor',
@@ -316,11 +315,12 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
   }
 });
 
+// =====================================================
 // POST /api/auth-v2/logout - LOGOUT MODERNO
 // =====================================================
 router.post('/logout', async (req, res) => {
   try {
-    logger.auth('Logout...');
+    console.log('🚪 [Auth V2] Logout...');
 
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -336,9 +336,9 @@ router.post('/logout', async (req, res) => {
         const blacklistKey = `blacklist:${token}`;
         await cacheService.set(blacklistKey, true, 24 * 60 * 60); // 24 horas
         
-        logger.auth(`Logout realizado: ${decoded.email}`);
+        console.log(`✅ Logout realizado: ${decoded.email}`);
       } catch (jwtError) {
-        logger.warn('Token inválido no logout, continuando...');
+        console.log('⚠️ Token inválido no logout, continuando...');
       }
     }
 

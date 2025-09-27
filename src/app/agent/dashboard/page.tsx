@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { AgentLayout } from '@/components/layout/agent-layout';
 import { TransferCallModal } from '@/components/modals/TransferCallModal';
+import { StatsCard } from '@/components/agent/StatsCard';
 import { AgentInfoPills } from '@/components/agent/AgentInfoPills';
 import { CallStatusOverlay } from '@/components/agent/CallStatusOverlay';
 import { DialerKeypad } from '@/components/agent/DialerKeypad';
@@ -57,10 +58,15 @@ import { FloatingSMSButton } from '@/components/sms/FloatingSMSButton';
 // import { useAgentData } from '@/hooks/useAgentData';
 // import { useToast } from '@/hooks/useToast';
 import { useActiveCallsOptimized, ActiveCall as OptimizedActiveCall } from '@/hooks/useActiveCallsOptimized';
+import { workSessionsService, type WorkSession, type WorkBreak } from '@/services/workSessionsService';
+import { agentAuthService, type AgentData } from '@/services/agentAuthService';
+import { authService } from '@/lib/auth';
 import { unifiedAuthService } from '@/lib/unifiedAuth';
 import { userRealtimeService } from '@/services/userRealtimeService';
+import supabase from '@/lib/supabase';
 import { agentsRealtimeService } from '@/services/agentsRealtimeService';
 import { classificationService } from '@/services/classificationService';
+import { callLogsService } from '@/services/callLogsService';
 
 // Realtime via cliente centralizado (config via env em src/lib/supabase)
 
@@ -99,6 +105,7 @@ export default function AgentDashboard() {
 
   // Filtrar chamadas baseado na busca e filtros (como /active-calls) - OTIMIZADO com useMemo
   const filteredCalls = useMemo(() => {
+    console.log(`[SECURITY] Filtrando ${localCalls.length} chamadas para ramal ${agentData?.ramal}`);
     
     return localCalls.filter(call => {
       // Filtro de busca
@@ -127,6 +134,7 @@ export default function AgentDashboard() {
         
         // Filtro rigoroso: deve ser exatamente o ramal do agente
         if (callExtension !== agentExtension) {
+          console.log(`[SECURITY] Chamada filtrada: ${callExtension} !== ${agentExtension}`);
           return false;
         }
         
@@ -138,6 +146,10 @@ export default function AgentDashboard() {
     }).filter((call, index, array) => {
       // Log final do resultado da filtragem
       if (index === array.length - 1) {
+        console.log(`[SECURITY] ✅ Resultado: ${array.length} chamadas aprovadas para ramal ${agentData?.ramal}`);
+        array.forEach((c, i) => {
+          console.log(`[SECURITY] Chamada ${i + 1}: extension=${c.extension}, caller=${c.callerid}, destination=${c.destination}`);
+        });
       }
       return true;
     });
@@ -272,6 +284,7 @@ export default function AgentDashboard() {
           }
         }
       } catch (err) {
+        console.warn('[WorkTimer] Falha ao sincronizar sessão ativa:', err);
       } finally {
         setWorkLoading(false);
       }
@@ -318,6 +331,7 @@ export default function AgentDashboard() {
       if (resp.status === 204) return null;
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '');
+        console.warn('⚠️ [AutoDialer] /next falhou:', resp.status, txt);
         return null;
       }
       const data = await resp.json();
@@ -331,6 +345,7 @@ export default function AgentDashboard() {
       } as NormalizedContact;
       return normalized;
     } catch (e) {
+      console.warn('⚠️ [AutoDialer] Erro ao obter próximo contato:', e);
       return null;
     }
   };
@@ -389,6 +404,7 @@ export default function AgentDashboard() {
         } catch {}
       }
     } catch (e) {
+      console.warn('⚠️ [AutoDialer] Erro ao obter lote do discador:', e);
     }
     return results;
   };
@@ -432,6 +448,7 @@ export default function AgentDashboard() {
         showToast('Jornada iniciada', 'success');
       }
     } catch (err) {
+      console.error('[WorkTimer] start error:', err);
       showToast('Falha ao iniciar jornada', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -453,6 +470,7 @@ export default function AgentDashboard() {
         showToast('Pausa iniciada', 'success');
       }
     } catch (err) {
+      console.error('[WorkTimer] pause error:', err);
       showToast('Falha ao iniciar pausa', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -481,6 +499,7 @@ export default function AgentDashboard() {
         showToast('Pausa encerrada', 'success');
       }
     } catch (err) {
+      console.error('[WorkTimer] resume error:', err);
       showToast('Falha ao encerrar pausa', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -500,7 +519,7 @@ export default function AgentDashboard() {
         showToast('Jornada finalizada', 'success');
       }
     } catch (err) {
-      logger.error('WorkTimer stop error:', err);
+      console.error('[WorkTimer] stop error:', err);
       showToast('Falha ao finalizar jornada', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -729,11 +748,11 @@ export default function AgentDashboard() {
   // Função para iniciar captura DTMF
   const startDTMFCapture = async (callId: string) => {
     if (!callId) {
-      logger.warn('DTMF ID da chamada não fornecido');
+      console.warn('[DTMF] ID da chamada não fornecido');
       return;
     }
 
-    logger.debug(`DTMF iniciando captura para chamada: ${callId}`);
+    console.log(`[DTMF] Iniciando captura para chamada: ${callId}`);
     
     // Limpar subscription anterior se existir
     if (dtmfSubscription) {
@@ -743,9 +762,9 @@ export default function AgentDashboard() {
     // ✅ LIMPAR DÍGITOS EXISTENTES ANTES DE INICIAR
     try {
       await clearCapturedDigits(callId);
-      logger.debug(`DTMF dígitos anteriores limpos para chamada: ${callId}`);
+      console.log(`[DTMF] Dígitos anteriores limpos para chamada: ${callId}`);
     } catch (error) {
-      logger.error('DTMF erro ao limpar dígitos anteriores:', error);
+      console.error('[DTMF] Erro ao limpar dígitos anteriores:', error);
     }
 
     // Buscar dígitos existentes (deve estar vazio após limpeza)
@@ -760,7 +779,7 @@ export default function AgentDashboard() {
         }
       }
     } catch (error) {
-      logger.error('DTMF erro ao buscar dígitos existentes:', error);
+      console.error('[DTMF] Erro ao buscar dígitos existentes:', error);
       setCapturedDigits('');
     }
 
@@ -776,7 +795,7 @@ export default function AgentDashboard() {
           filter: `id_call=eq.${callId}`
         },
         (payload) => {
-          logger.debug('DTMF Realtime update:', payload);
+          console.log('[DTMF] Realtime update:', payload);
           if (payload.new && typeof payload.new === 'object') {
             const row: any = payload.new as any;
             const digito: string = typeof row?.digito === 'string' ? row.digito : '';
@@ -793,7 +812,7 @@ export default function AgentDashboard() {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          logger.debug(`DTMF inscrito para chamada: ${callId}`);
+          console.log(`[DTMF] Inscrito para chamada: ${callId}`);
         }
       });
 
@@ -803,7 +822,7 @@ export default function AgentDashboard() {
 
   // Função para parar captura DTMF
   const stopDTMFCapture = () => {
-    logger.debug('DTMF parando captura');
+    console.log('[DTMF] Parando captura');
     
     if (dtmfSubscription) {
       dtmfSubscription.unsubscribe();
@@ -836,7 +855,7 @@ export default function AgentDashboard() {
         setTimeout(() => setToast(null), 2000);
       }
     } catch (error) {
-      logger.error('DTMF erro ao limpar dígitos:', error);
+      console.error('[DTMF] Erro ao limpar dígitos:', error);
       setToast({
         message: 'Erro ao limpar dígitos',
         type: 'error'
@@ -923,7 +942,7 @@ export default function AgentDashboard() {
       clearInterval(autoReplenishTimerRef.current);
       autoReplenishTimerRef.current = null;
     }
-    // AutoDialer parado
+    console.log('🛑 [AutoDialer] Parado');
   };
 
   // (stopCallTimer defined later near timers section to avoid duplication)
@@ -973,7 +992,7 @@ export default function AgentDashboard() {
           autoDialerContactsRef.current = [...autoDialerContactsRef.current, ...toMove];
           const newRemaining = autoDialerContactsRef.current.slice(idx + 1);
           setAutoDialerQueueSafe(newRemaining);
-          // Contatos movidos da memória para fila ativa
+          console.log(`🧃 [AutoDialer] +${toMove.length} movidos da memória para ativa. Ativa agora=${newRemaining.length}, Memória=${autoMemoryBufferRef.current.length}`);
         }
       }
 
@@ -995,13 +1014,13 @@ export default function AgentDashboard() {
             const freshMem = addMem.filter(c => !seen.has(c.id));
             if (freshMem.length > 0) {
               autoMemoryBufferRef.current = [...autoMemoryBufferRef.current, ...freshMem];
-              // Memória reabastecida
+              console.log(`🧠 [AutoDialer] Memória reabastecida: +${freshMem.length}, totalMem=${autoMemoryBufferRef.current.length}`);
             }
           }
         }
       }
     } catch (e) {
-      // Falha ao reabastecer fila
+      console.warn('⚠️ [AutoDialer] Falha ao reabastecer fila:', e);
     }
   };
 
@@ -1033,7 +1052,7 @@ export default function AgentDashboard() {
     setAutoDialerCurrentContact(active[0] || null);
     autoMemoryBufferRef.current = mem;
     setAutoDialerStats(prev => ({ ...prev, total: active.length, remaining: Math.max(0, active.length - 1) }));
-    // AutoDialer inicializado com filas ativa e memória
+    console.log(`🚀 [AutoDialer] Seed 2-níveis: ativa=${active.length}, memória=${mem.length}`);
     return { activeCount: active.length, memoryCount: mem.length };
   };
 
@@ -1119,14 +1138,14 @@ export default function AgentDashboard() {
         }
         // Contabilizar falha com causa
         const info = getWebRTCFailureInfo(ev);
-        // Falha na chamada WebRTC
+        console.warn('📵 [AutoDialer] Falha na chamada:', info, ev);
         setAutoDialerStats(prev => ({ ...prev, failed: prev.failed + 1 }));
         // Persistir e continuar para o próximo contato
         void finalizeAndLogCall('failed', ev);
         continueNext();
       });
     } catch (e) {
-      // Erro ao iniciar chamada automática
+      console.error('❌ [AutoDialer] Erro ao iniciar chamada automática:', e);
       // Contabilizar falha imediata
       setAutoDialerStats(prev => ({ ...prev, failed: prev.failed + 1 }));
       // Persistir falha sem tocar
@@ -1271,12 +1290,12 @@ export default function AgentDashboard() {
       callLogSavedRef.current = true; // marcar antes para evitar duplicatas em eventos em cascata
       const resp = await callLogsService.logFinalCall(payload);
       if (!resp.success) {
-        // Falha ao salvar call log
+        console.warn('⚠️ Falha ao salvar call log:', resp.message || resp.error);
       } else {
-        // Call log salvo com sucesso
+        console.log('📝 Call log salvo:', resp.data);
       }
     } catch (e) {
-      // Erro ao salvar call log
+      console.error('❌ Erro ao salvar call log:', e);
     }
   };
 
@@ -1374,7 +1393,7 @@ export default function AgentDashboard() {
       setContactSheetData(base);
       setContactSheetOpen(true);
     } catch (e) {
-      // Erro ao abrir ficha do contato
+      console.error('Erro ao abrir ficha do contato:', e);
       showToast('Não foi possível abrir a ficha do contato', 'error');
     }
   };
@@ -1429,7 +1448,7 @@ export default function AgentDashboard() {
               }
             }
           } catch (e) {
-            // Falha ao resolver contato no backend
+            console.warn('⚠️ Falha ao resolver contato no backend:', e);
           }
         }
       }
@@ -1440,7 +1459,7 @@ export default function AgentDashboard() {
       }
       openContactSheet(candidate);
     } catch (e) {
-      // Erro ao abrir ficha do número atual
+      console.error('Erro ao abrir ficha do número atual:', e);
       showToast('Erro ao abrir ficha', 'error');
     }
   };

@@ -2,9 +2,8 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const agentsService = require('../services/agentsService');
 const extensionStatusService = require('../services/extensionStatusService');
-const { supabase } = require('../config/database');
-const { body, validationResult, param } = require('express-validator');
-const logger = require('../utils/logger');
+const { supabase, pool, query } = require('../config/database');
+const { body, param, query: queryValidator, validationResult } = require('express-validator');
 const router = express.Router();
 
 // Usar cliente Supabase compartilhado do backend
@@ -40,12 +39,12 @@ router.get(
 
     const { ids, search } = req.query;
     
-    logger.api('Buscando agentes + status (unificado) do usuário:', req.user.id);
+    console.log('🔄 [Agents] Buscando agentes + status (unificado) do usuário:', req.user.id);
     
     // Se IDs específicos foram fornecidos, buscar apenas esses agentes
     if (ids) {
       const agentIds = ids.split(',').map(id => id.trim()).filter(id => id);
-      logger.debug('Buscando agentes específicos:', agentIds);
+      console.log('🎯 [Agents] Buscando agentes específicos:', agentIds);
       
       const { data: specificAgents, error } = await supabase
         .from('agentes_pabx')
@@ -72,11 +71,14 @@ router.get(
     try { 
       await extensionStatusService.checkExtensionStatus(true); // forceRefresh = true
     } catch (e) { 
-      logger.warn('Refresh status falhou (GET /api/agents):', e?.message || e); 
+      console.warn('⚠️ Refresh status falhou (GET /api/agents):', e?.message || e); 
     }
     const baseAgents = await agentsService.getAgentsByUser(req.user.id, { search });
     const enriched = await agentsService.enrichWithStatus(baseAgents, req.user.id);
-    logger.debug('Enriched status (GET /api/agents):', enriched.map(a => ({ ramal: a.ramal || a.extension, liveStatus: a.liveStatus, isOnline: a.isOnline })));
+    console.log('🧩 [Agents] Enriched status (GET /api/agents):');
+    enriched.forEach(a => {
+      console.log(`   - ${a.ramal || a.extension}: liveStatus=${a.liveStatus} isOnline=${a.isOnline}`);
+    });
 
     // 🔗 Enriquecer com estado de Jornada (sessão/pausa) por agente
     try {
@@ -129,7 +131,7 @@ router.get(
         }
       });
     } catch (e) {
-      logger.warn('Falha ao enriquecer com jornada:', e?.message || e);
+      console.warn('⚠️ [Agents] Falha ao enriquecer com jornada:', e?.message || e);
     }
 
     res.json({
@@ -142,15 +144,15 @@ router.get(
       }
     });
   } catch (error) {
-    logger.error('Erro ao buscar agentes:', error);
+    console.error('Erro ao buscar agentes:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor', error: error.message });
   }
 });
 
 // GET /api/agents/next-ramal-fast - Versão otimizada com PostgreSQL direto
 router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
-  logger.debug(`Fast Ramal rota chamada - URL: ${req.url}, Method: ${req.method}`);
-  logger.debug('Fast Ramal Headers:', req.headers);
+  console.log(`🚀 [Fast Ramal] Rota chamada - URL: ${req.url}, Method: ${req.method}`);
+  console.log(`🚀 [Fast Ramal] Headers:`, req.headers);
   const start = Date.now();
   
   try {
@@ -158,14 +160,14 @@ router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
     let startRange = parseInt(req.query.start || '1000', 10);
     let endRange = parseInt(req.query.end || '9999', 10);
 
-    logger.debug(`Fast Ramal iniciando busca otimizada - Range: ${startRange}-${endRange} para usuário: ${req.user?.id || 'undefined'}`);
-    logger.debug('Fast Ramal Query params recebidos:', req.query);
-    logger.debug('Fast Ramal Headers de auth:', req.headers.authorization ? 'Presente' : 'Ausente');
-    logger.debug('Fast Ramal User object:', req.user);
+    console.log(`⚡ [Fast Ramal] Iniciando busca otimizada - Range: ${startRange}-${endRange} para usuário: ${req.user?.id || 'undefined'}`);
+    console.log(`⚡ [Fast Ramal] Query params recebidos:`, req.query);
+    console.log(`⚡ [Fast Ramal] Headers de auth:`, req.headers.authorization ? 'Presente' : 'Ausente');
+    console.log(`⚡ [Fast Ramal] User object:`, req.user);
 
     // Verificar se usuário está autenticado
     if (!req.user || !req.user.id) {
-      logger.warn('Fast Ramal usuário não autenticado');
+      console.log(`❌ [Fast Ramal] Usuário não autenticado`);
       return res.status(401).json({
         success: false,
         message: 'Usuário não autenticado',
@@ -182,10 +184,10 @@ router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
     if (startRange > endRange) {
       const tmp = startRange; startRange = endRange; endRange = tmp;
     }
-    logger.debug(`Fast Ramal range sanitizado: ${startRange}-${endRange}`);
+    console.log(`✅ [Fast Ramal] Range sanitizado: ${startRange}-${endRange}`);
 
     // Pular pool PostgreSQL direto por enquanto - ir direto para Supabase RPC
-    logger.debug('Fast Ramal usando Supabase RPC diretamente');
+    console.log(`🔄 [Fast Ramal] Usando Supabase RPC diretamente`);
     
     // Tentar Supabase RPC primeiro
     const { data, error } = await supabase.rpc('next_available_ramal', {
@@ -193,10 +195,10 @@ router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
       p_end: endRange,
     });
 
-    logger.debug('Fast Ramal resultado RPC:', { data, error });
+    console.log(`🔄 [Fast Ramal] Resultado RPC - data:`, data, 'error:', error);
 
     if (error) {
-      logger.error('Fast Ramal erro Supabase RPC:', error);
+      console.error('❌ [Fast Ramal] Erro Supabase RPC:', error);
       return res.status(500).json({
         success: false,
         message: 'Erro na função do banco de dados',
@@ -206,7 +208,7 @@ router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
     }
 
     if (!data) {
-      logger.warn(`Fast Ramal nenhum ramal disponível no intervalo ${startRange}-${endRange}`);
+      console.log(`⚠️ [Fast Ramal] Nenhum ramal disponível no intervalo ${startRange}-${endRange}`);
       return res.status(404).json({ 
         success: false, 
         message: 'Nenhum ramal disponível no intervalo',
@@ -215,7 +217,7 @@ router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
     }
 
     const duration = Date.now() - start;
-    logger.debug(`Fast Ramal próximo ramal obtido em ${duration}ms: ${data}`);
+    console.log(`✅ [Fast Ramal] Próximo ramal obtido em ${duration}ms: ${data}`);
     
     return res.json({ 
       success: true, 
@@ -229,8 +231,8 @@ router.get('/next-ramal-fast', authenticateToken, async (req, res) => {
     
   } catch (error) {
     const duration = Date.now() - start;
-    logger.error('Fast Ramal erro na busca otimizada:', error.message);
-    logger.error('Fast Ramal stack trace:', error.stack);
+    console.error('❌ [Fast Ramal] Erro na busca otimizada:', error.message);
+    console.error('❌ [Fast Ramal] Stack trace:', error.stack);
     
     return res.status(500).json({ 
       success: false, 
@@ -247,7 +249,7 @@ router.get('/next-ramal', authenticateToken, async (req, res) => {
     const start = parseInt(req.query.start || '1000', 10);
     const end = parseInt(req.query.end || '9999', 10);
 
-    logger.api(`Next Ramal buscando próximo ramal disponível - Range: ${start}-${end} para usuário: ${req.user.id}`);
+    console.log(`🔍 [Next Ramal] Buscando próximo ramal disponível - Range: ${start}-${end} para usuário: ${req.user.id}`);
 
     const { data, error } = await supabase.rpc('next_available_ramal', {
       p_start: isNaN(start) ? 1000 : start,
@@ -255,7 +257,7 @@ router.get('/next-ramal', authenticateToken, async (req, res) => {
     });
 
     if (error) {
-      logger.error('Next Ramal erro RPC next_available_ramal:', error);
+      console.error('❌ [Next Ramal] Erro RPC next_available_ramal:', error);
       // Propaga detalhes para facilitar diagnóstico (sem expor segredos)
       return res.status(500).json({ 
         success: false, 
@@ -270,14 +272,14 @@ router.get('/next-ramal', authenticateToken, async (req, res) => {
     }
 
     if (!data) {
-      logger.warn(`Next Ramal nenhum ramal disponível no intervalo ${start}-${end}`);
+      console.log(`⚠️ [Next Ramal] Nenhum ramal disponível no intervalo ${start}-${end}`);
       return res.status(404).json({ success: false, message: 'Nenhum ramal disponível no intervalo' });
     }
 
-    logger.api(`Next Ramal próximo ramal disponível: ${data}`);
+    console.log(`✅ [Next Ramal] Próximo ramal disponível: ${data}`);
     return res.json({ success: true, data: { ramal: data } });
   } catch (e) {
-    logger.error('Next Ramal erro ao sugerir próximo ramal:', e);
+    console.error('❌ [Next Ramal] Erro ao sugerir próximo ramal:', e);
     return res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 });
@@ -302,7 +304,7 @@ router.get(
       'Last-Modified': new Date().toUTCString()
     });
 
-    logger.api(`Buscando agente por ID: ${id} para usuário: ${req.user.id}`);
+    console.log(`🔍 [Agents] Buscando agente por ID: ${id} para usuário: ${req.user.id}`);
 
     // Buscar agente por ID e do usuário logado
     const { data: agent, error } = await supabase
@@ -325,7 +327,7 @@ router.get(
       .single();
 
     if (error || !agent) {
-      logger.warn(`Agente não encontrado: ${id}`);
+      console.log(`❌ [Agents] Agente não encontrado: ${id}`);
       return res.status(404).json({
         success: false,
         message: 'Agente não encontrado'
@@ -345,7 +347,7 @@ router.get(
       }
     });
   } catch (error) {
-    logger.error('Erro ao buscar agente por ID:', error);
+    console.error('Erro ao buscar agente por ID:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor', error: error.message });
   }
 });
@@ -369,7 +371,7 @@ router.get(
       'Last-Modified': new Date().toUTCString()
     });
 
-    logger.api(`Buscando agente por ramal: ${ramal} para usuário: ${req.user.id}`);
+    console.log(`🔍 [Agents] Buscando agente por ramal: ${ramal} para usuário: ${req.user.id}`);
     
     // Buscar agente específico por ramal
     const { data: agents, error } = await supabase
@@ -392,7 +394,7 @@ router.get(
       .single();
 
     if (error || !agents) {
-      logger.warn(`Agente não encontrado: ${ramal}`);
+      console.log(`❌ [Agents] Agente não encontrado: ${ramal}`);
       return res.status(404).json({
         success: false,
         message: 'Agente não encontrado'
@@ -403,7 +405,7 @@ router.get(
     const enriched = await agentsService.enrichWithStatus([agents], req.user.id);
     const agentWithStatus = enriched[0];
 
-    logger.api(`Agente encontrado: ${agentWithStatus.agente_name} (${ramal}) - Status: ${agentWithStatus.liveStatus}`);
+    console.log(`✅ [Agents] Agente encontrado: ${agentWithStatus.agente_name} (${ramal}) - Status: ${agentWithStatus.liveStatus}`);
 
     res.json({
       success: true,
@@ -414,7 +416,7 @@ router.get(
       }
     });
   } catch (error) {
-    logger.error('Erro ao buscar agente por ramal:', error);
+    console.error('Erro ao buscar agente por ramal:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor', error: error.message });
   }
 });
@@ -447,7 +449,7 @@ router.get('/status', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Erro ao buscar status dos agentes:', error);
+    console.error('Erro ao buscar status dos agentes:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor', error: error.message });
   }
 });

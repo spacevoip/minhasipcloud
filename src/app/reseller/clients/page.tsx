@@ -1,41 +1,41 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useEffect } from 'react';
+import { MainLayout } from '@/components/layout/main-layout';
+import { useToast } from '@/components/ui/toast';
+import { useResellerClientsStore, CreateClientData, UpdateClientData } from '@/store/reseller-clients';
+import { useResellerPlansStore } from '@/store/reseller-plans';
+import { useAuthStore } from '@/store/auth';
+import { clientsService } from '@/lib/clientsService';
+import { userService } from '@/lib/userService';
+import { plansService } from '@/services/plansService';
+import StatusPill from '@/components/ui/StatusPill';
 import { 
   Users, 
   Plus, 
   Search, 
   Filter, 
+  Eye, 
   Edit, 
   Trash2, 
-  Eye, 
-  UserPlus, 
-  CreditCard, 
+  Building, 
   Phone, 
   Mail, 
   Calendar,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Clock,
-  DollarSign,
-  User,
+  UserCheck,
+  CreditCard,
+  X,
+  Save,
+  Loader2,
+  MapPin,
+  FileText,
   Settings,
+  DollarSign,
+  UserX,
+  UserPlus,
   Shield,
   ShieldOff
 } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-import logger from '@/utils/logger';
 
 // Função para formatar telefone brasileiro
 const formatPhoneBrazil = (phone: string): string => {
@@ -270,7 +270,7 @@ export default function ResellerClientsPage() {
   const loadResellerData = async (forceRefresh = false) => {
     // Evitar múltiplas chamadas simultâneas (exceto se forçado)
     if (isLoading && !forceRefresh) {
-      logger.debug('loadResellerData já está executando, ignorando chamada duplicada');
+      console.log('⚠️ loadResellerData já está executando, ignorando chamada duplicada');
       return;
     }
     
@@ -279,7 +279,7 @@ export default function ResellerClientsPage() {
       const currentUser = userService.getCurrentUser();
       
       if (!currentUser || currentUser.role !== 'reseller') {
-        logger.warn('Usuário não é revendedor');
+        console.log('⚠️ Usuário não é revendedor');
         return;
       }
 
@@ -289,9 +289,9 @@ export default function ResellerClientsPage() {
       try {
         const resellerData = await userService.getCurrentUserData();
         setResellerBalance(resellerData?.credits || 0);
-        logger.debug(`Saldo do revendedor: R$ ${resellerData?.credits || 0}`);
+        console.log(`💰 Saldo do revendedor: R$ ${resellerData?.credits || 0}`);
       } catch (balanceError) {
-        logger.error('Erro ao carregar saldo do revendedor:', balanceError);
+        console.error('⚠️ Erro ao carregar saldo do revendedor:', balanceError);
         setResellerBalance(0);
       }
 
@@ -301,11 +301,11 @@ export default function ResellerClientsPage() {
 
       // Carregar planos reais do revendedor usando o mesmo método da página de planos
       try {
-        logger.debug('Carregando planos reais do revendedor...');
+        console.log('🔄 Carregando planos reais do revendedor...');
         const { secureSupabaseService } = await import('@/services/secureSupabaseService');
         const resellerPlansFromAPI = await secureSupabaseService.getPlansByReseller(currentUser.id);
         
-        // Planos do revendedor carregados
+        console.log(`🔍 Encontrados ${resellerPlansFromAPI.length} planos do revendedor ${currentUser.id}`);
         
         setRealPlans(resellerPlansFromAPI);
         
@@ -317,10 +317,10 @@ export default function ResellerClientsPage() {
           }));
         }
         
-        // Planos reais carregados com sucesso
+        console.log(`✅ Planos reais carregados: ${resellerPlansFromAPI.length} planos disponíveis para o revendedor`);
         
       } catch (plansError) {
-        // Erro ao carregar planos reais, usando fallback
+        console.error('❌ Erro ao carregar planos reais, usando fallback:', plansError);
         
         // Fallback: usar planos do store se disponíveis
         if (resellerPlans.length > 0) {
@@ -333,11 +333,11 @@ export default function ResellerClientsPage() {
             }));
           }
           
-          // Fallback: usando planos do store
+          console.log(`✅ Fallback: usando ${resellerPlans.length} planos do store`);
         } else {
           // Se não há planos no store, tentar buscar diretamente via secureSupabaseService
           try {
-            // Fallback: buscando planos via secureSupabaseService
+            console.log('🔄 Fallback: buscando planos via secureSupabaseService...');
             const { secureSupabaseService } = await import('@/services/secureSupabaseService');
             const resellerSpecificPlans = await secureSupabaseService.getPlansByReseller(currentUser.id);
             setRealPlans(resellerSpecificPlans);
@@ -349,17 +349,17 @@ export default function ResellerClientsPage() {
               }));
             }
             
-            // Fallback: usando planos específicos do revendedor
+            console.log(`✅ Fallback: usando ${resellerSpecificPlans.length} planos específicos do revendedor`);
           } catch (resellerPlansError) {
-            // Erro ao carregar planos do revendedor
+            console.error('❌ Erro ao carregar planos do revendedor:', resellerPlansError);
             setRealPlans([]);
-            // Nenhum plano encontrado para este revendedor
+            console.log('⚠️ Nenhum plano encontrado para este revendedor');
           }
         }
       }
 
-      // Dados carregados com sucesso
-      // loadResellerData concluído
+      console.log(`✅ Dados carregados com sucesso: ${clients.length} clientes, ${realPlans.length} planos`);
+      console.log('🔄 loadResellerData concluído - evitando loops futuros');
 
     } catch (error) {
       console.error('❌ Erro ao carregar dados do revendedor:', error);

@@ -266,7 +266,7 @@ export default function AdminUsersPage() {
       setSelectedUsers(new Set());
       toast.success('Usuários bloqueados', `${updatedIds.length} usuário(s) bloqueado(s) com sucesso`);
     } catch (error) {
-      // Erro no bloqueio em lote
+      console.error('Erro no bloqueio em lote:', error);
       toast.error('Erro', 'Falha ao bloquear usuários selecionados');
     } finally {
       setIsBulkBlocking(false);
@@ -311,7 +311,7 @@ export default function AdminUsersPage() {
       setSelectedUsers(new Set());
       toast.success('Usuários desbloqueados', `${updatedIds.length} usuário(s) desbloqueado(s) com sucesso`);
     } catch (error) {
-      // Erro no desbloqueio em lote
+      console.error('Erro no desbloqueio em lote:', error);
       toast.error('Erro', 'Falha ao desbloquear usuários selecionados');
     } finally {
       setIsBulkUnblocking(false);
@@ -759,7 +759,7 @@ export default function AdminUsersPage() {
       toast.success('Usuário Criado', `${newUser.name} foi criado com sucesso!`);
       closeNewUserModal();
     } catch (error) {
-      // Erro ao criar usuário
+      console.error('Erro ao criar usuário:', error);
       toast.error('Erro', 'Erro ao criar usuário. Tente novamente.');
     } finally {
       setIsLoading(false);

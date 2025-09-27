@@ -3,9 +3,7 @@
  * Implementação completa com fallback e otimizações
  */
 
-const Redis = require('ioredis');
-const crypto = require('crypto');
-const logger = require('../utils/logger');
+const redis = require('redis');
 
 class CacheService {
   constructor() {

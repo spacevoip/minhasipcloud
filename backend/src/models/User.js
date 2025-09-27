@@ -1,7 +1,5 @@
-const bcrypt = require('bcrypt');
-const { pool, query } = require('../config/database');
-const { supabase } = require('../config/database');
-const logger = require('../utils/logger');
+const { query, supabase } = require('../config/database');
+const bcrypt = require('bcryptjs');
 
 class User {
   constructor(userData) {
@@ -66,7 +64,7 @@ class User {
       
       return data ? new User(data) : null;
     } catch (error) {
-      logger.error('Erro ao buscar usuário por email:', error);
+      console.error('❌ Erro ao buscar usuário por email:', error);
       
       // Fallback para query SQL direta
       try {
@@ -81,7 +79,7 @@ class User {
         
         return new User(result.rows[0]);
       } catch (fallbackError) {
-        logger.error('Erro no fallback SQL:', fallbackError);
+        console.error('❌ Erro no fallback SQL:', fallbackError);
         throw error;
       }
     }
@@ -111,7 +109,7 @@ class User {
       
       return data ? new User(data) : null;
     } catch (error) {
-      logger.error('Erro ao buscar usuário por username:', error);
+      console.error('❌ Erro ao buscar usuário por username:', error);
       throw error;
     }
   }
@@ -142,7 +140,7 @@ class User {
       }
       
       // Log detalhado dos campos boolean para debug
-      logger.debug(`User.findById dados do Supabase para ${id}:`, {
+      console.log(`🔍 [User.findById] Dados do Supabase para ${id}:`, {
         sms_send: data.sms_send,
         sms_send_type: typeof data.sms_send,
         webrtc: data.webrtc,
@@ -163,7 +161,7 @@ class User {
         mailling_up: Boolean(data.mailling_up)
       };
       
-      logger.debug('User.findById dados normalizados:', {
+      console.log(`✅ [User.findById] Dados normalizados:`, {
         sms_send: normalizedData.sms_send,
         webrtc: normalizedData.webrtc,
         auto_discagem: normalizedData.auto_discagem,
@@ -174,7 +172,7 @@ class User {
       return new User(normalizedData);
       
     } catch (error) {
-      logger.error('Erro ao buscar usuário por ID:', error);
+      console.error('❌ Erro ao buscar usuário por ID:', error);
       throw error;
     }
   }
@@ -182,7 +180,7 @@ class User {
   // Verificar senha
   static async verifyPassword(login, password) {
     try {
-      logger.debug('Buscando usuário para login:', login);
+      console.log('🔍 Buscando usuário para login:', login);
       
       // Usar apenas cliente Supabase (mais confiável)
       const { data: users, error } = await supabase
@@ -191,31 +189,31 @@ class User {
         .or(`email.eq.${login},username.eq.${login}`);
       
       if (error) {
-        logger.error('Erro no Supabase:', error);
+        console.error('❌ Erro no Supabase:', error);
         throw new Error('Erro ao buscar usuário no banco de dados');
       }
       
       if (!users || users.length === 0) {
-        logger.warn('Usuário não encontrado');
+        console.log('❌ Usuário não encontrado');
         return null;
       }
       
       const user = users[0];
-      logger.debug('Usuário encontrado:', user.name);
+      console.log('✅ Usuário encontrado:', user.name);
       
       // Verificar senha
       const isValid = await bcrypt.compare(password, user.password_hash);
       if (!isValid) {
-        logger.warn('Senha inválida');
+        console.log('❌ Senha inválida');
         return null;
       }
       
-      logger.debug('Login válido para:', user.name);
+      console.log('✅ Login válido para:', user.name);
       const userInstance = new User(user);
-      logger.debug('Instância User criada:', typeof userInstance.toJSON);
+      console.log('✅ Instância User criada:', typeof userInstance.toJSON);
       return userInstance;
     } catch (error) {
-      logger.error('Erro ao verificar senha:', error);
+      console.error('❌ Erro ao verificar senha:', error);
       throw error;
     }
   }
@@ -247,7 +245,7 @@ class User {
       
       return result.rows.map(userData => new User(userData));
     } catch (error) {
-      logger.error('Erro ao buscar usuários por revendedor:', error);
+      console.error('❌ Erro ao buscar usuários por revendedor:', error);
       throw error;
     }
   }
@@ -289,12 +287,12 @@ class User {
 
       const { data, error } = await qb;
       if (error) {
-        logger.error('Erro Supabase em findAll:', error);
+        console.error('❌ Erro Supabase em findAll:', error);
         throw error;
       }
       return (data || []).map(userData => new User(userData));
     } catch (error) {
-      logger.error('Erro ao buscar todos os usuários:', error);
+      console.error('❌ Erro ao buscar todos os usuários:', error);
       throw error;
     }
   }
@@ -325,12 +323,12 @@ class User {
 
       const { count, error } = await qb;
       if (error) {
-        logger.error('Erro Supabase em count:', error);
+        console.error('❌ Erro Supabase em count:', error);
         throw error;
       }
       return typeof count === 'number' ? count : 0;
     } catch (error) {
-      logger.error('Erro ao contar usuários:', error);
+      console.error('❌ Erro ao contar usuários:', error);
       throw error;
     }
   }
@@ -338,7 +336,7 @@ class User {
   // Atualizar último login do usuário
   static async updateLastLogin(userId) {
     try {
-      logger.debug(`Atualizando último login para usuário: ${userId}`);
+      console.log(`🕒 Atualizando último login para usuário: ${userId}`);
       
       const { data, error } = await supabase
         .from('users_pabx')
@@ -351,11 +349,11 @@ class User {
         .single();
       
       if (error) {
-        logger.error('Erro ao atualizar último login no Supabase:', error);
+        console.error('❌ Erro ao atualizar último login no Supabase:', error);
         throw error;
       }
       
-      logger.debug(`Último login atualizado com sucesso para usuário: ${userId}`);
+      console.log(`✅ Último login atualizado com sucesso para usuário: ${userId}`);
       return data ? new User(data) : null;
     } catch (error) {
       console.error('❌ Erro ao atualizar último login:', error);
@@ -366,7 +364,7 @@ class User {
   // Atualizar último IP do usuário
   static async updateLastIp(userId, ip) {
     try {
-      logger.debug(`Atualizando último IP para usuário: ${userId} -> ${ip}`);
+      console.log(`🌐 Atualizando último IP para usuário: ${userId} -> ${ip}`);
       const { data, error } = await supabase
         .from('users_pabx')
         .update({
@@ -378,14 +376,14 @@ class User {
         .single();
 
       if (error) {
-        logger.error('Erro ao atualizar último IP no Supabase:', error);
+        console.error('❌ Erro ao atualizar último IP no Supabase:', error);
         throw error;
       }
 
-      logger.debug(`Último IP atualizado com sucesso para usuário: ${userId}`);
+      console.log(`✅ Último IP atualizado com sucesso para usuário: ${userId}`);
       return data ? new User(data) : null;
     } catch (error) {
-      logger.error('Erro ao atualizar último IP:', error);
+      console.error('❌ Erro ao atualizar último IP:', error);
       throw error;
     }
   }
@@ -393,7 +391,7 @@ class User {
   // Atualizar senha do usuário
   static async updatePassword(userId, hashedPassword) {
     try {
-      logger.debug(`Atualizando senha para usuário: ${userId}`);
+      console.log(`🔐 Atualizando senha para usuário: ${userId}`);
       
       const { data, error } = await supabase
         .from('users_pabx')
@@ -406,14 +404,14 @@ class User {
         .single();
       
       if (error) {
-        logger.error('Erro ao atualizar senha no Supabase:', error);
+        console.error('❌ Erro ao atualizar senha no Supabase:', error);
         throw error;
       }
       
-      logger.debug(`Senha atualizada com sucesso para usuário: ${userId}`);
+      console.log(`✅ Senha atualizada com sucesso para usuário: ${userId}`);
       return data ? new User(data) : null;
     } catch (error) {
-      logger.error('Erro ao atualizar senha:', error);
+      console.error('❌ Erro ao atualizar senha:', error);
       throw error;
     }
   }

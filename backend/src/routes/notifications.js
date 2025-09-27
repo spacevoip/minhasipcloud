@@ -1,21 +1,19 @@
 const express = require('express');
+const { body, query, validationResult } = require('express-validator');
 const { authenticateToken, requireResellerOrAdmin } = require('../middleware/auth');
-const { supabase } = require('../config/database');
-const { body, validationResult, query } = require('express-validator');
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
-const path = require('path');
-const logger = require('../utils/logger');
 const cacheService = require('../services/cacheService');
 
 const router = express.Router();
 
-// Configuração do Supabase já importada no topo
+// Configuração do Supabase
+const { createClient } = require('@supabase/supabase-js');
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Middleware para debug de requisições
 const debugRequest = (req, res, next) => {
-  logger.debug('DEBUG REQUEST:', {
+  console.log('🔍 DEBUG REQUEST:', {
     method: req.method,
     url: req.originalUrl,
     headers: {
@@ -33,17 +31,17 @@ const debugRequest = (req, res, next) => {
 // --- Middleware para validar BIGINT ID
 const validateBigIntId = (req, res, next) => {
   const { id } = req.params;
-  logger.debug('Validando ID:', id);
+  console.log('🔍 Validando ID:', id);
   
   if (!/^\d+$/.test(id) || parseInt(id) <= 0) {
-    logger.warn('ID inválido:', id);
+    console.log('❌ ID inválido:', id);
     return res.status(400).json({ 
       success: false, 
       message: 'ID inválido - deve ser um número inteiro positivo',
       received_id: id
     });
   }
-  logger.debug('ID válido:', id);
+  console.log('✅ ID válido:', id);
   next();
 };
 
@@ -62,14 +60,14 @@ const normalizeTypeFromAudience = (req, res, next) => {
     if (!hasType) {
       if (hasAudience) {
         req.body.type = String(audienceRaw).trim();
-        logger.debug('Normalizado type a partir de audience:', req.body.type);
+        console.log('🔁 Normalizado type a partir de audience:', req.body.type);
       } else if (hasAudienceType) {
         req.body.type = String(audienceTypeRaw).trim();
-        logger.debug('Normalizado type a partir de audience_type:', req.body.type);
+        console.log('🔁 Normalizado type a partir de audience_type:', req.body.type);
       }
     }
   } catch (e) {
-    logger.warn('Falha ao normalizar type de audience:', e.message);
+    console.log('⚠️ Falha ao normalizar type de audience:', e.message);
   }
   next();
 };
@@ -102,7 +100,7 @@ const parseListParams = (req) => {
     order: safeOrder
   };
   
-  logger.debug('Parâmetros parseados:', parsed);
+  console.log('🔍 Parâmetros parseados:', parsed);
   return parsed;
 };
 
@@ -148,7 +146,7 @@ const validateNotificationPayload = [
   body('expires_at')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
-      logger.debug('Validando expires_at:', value, typeof value);
+      console.log('🔍 Validando expires_at:', value, typeof value);
       if (value === '' || value === null || value === undefined) {
         return true;
       }
@@ -163,7 +161,7 @@ const validateNotificationPayload = [
   body('data_termination')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
-      logger.debug('Validando data_termination:', value, typeof value);
+      console.log('🔍 Validando data_termination:', value, typeof value);
       if (value === '' || value === null || value === undefined) {
         return true;
       }
@@ -298,7 +296,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
         errors: errors.array()
       });
     }
-    logger.api('Listando notificações...');
+    console.log('📋 Listando notificações...');
     const params = parseListParams(req);
 
     let q = supabase
@@ -306,23 +304,23 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
       .select('id, title, message, type, status, expires_at, created_at, updated_at', { count: 'exact' });
 
     if (req.user.role === 'reseller') {
-      logger.debug('Filtrando por user_id (reseller):', req.user.id);
+      console.log('👤 Filtrando por user_id (reseller):', req.user.id);
       q = q.eq('user_id', req.user.id);
     }
     
     if (params.status) {
-      logger.debug('Filtrando por status:', params.status);
+      console.log('🔍 Filtrando por status:', params.status);
       q = q.eq('status', params.status);
     }
     
     if (params.audience_type) {
-      logger.debug('Filtrando por audience_type (type):', params.audience_type);
+      console.log('🔍 Filtrando por audience_type (type):', params.audience_type);
       q = q.eq('type', params.audience_type);
     }
     
     if (params.search) {
       const term = `%${params.search}%`;
-      logger.debug('Pesquisando por:', term);
+      console.log('🔍 Pesquisando por:', term);
       q = q.or(`message.ilike.${term},type.ilike.${term}`);
     }
 
@@ -330,7 +328,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
     q = q.order(params.orderBy, { ascending: params.order === 'asc' });
     q = q.range(params.offset, params.offset + params.limit - 1);
 
-    logger.debug('Query final construída');
+    console.log('🔍 Query final construída');
     const { data, error, count } = await q;
     
     if (error) {
@@ -338,7 +336,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
       throw error;
     }
 
-    logger.debug('Notificações encontradas:', count);
+    console.log('✅ Notificações encontradas:', count);
     
     // Cache control: avoid 304/client caching loops
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -351,7 +349,7 @@ router.get('/', debugRequest, authenticateToken, requireResellerOrAdmin, validat
       data: (data || []).map(n => ({ ...n, audience: n.type }))
     });
   } catch (error) {
-    logger.error('Erro ao listar notificações:', error);
+    console.error('❌ Erro ao listar notificações:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Erro interno do servidor', 
@@ -372,12 +370,12 @@ router.get('/my', authenticateToken, debugRequest, validateMyListQuery, async (r
         errors: errors.array()
       });
     }
-    logger.api('Listando notificações do usuário:', req.user.id);
+    console.log('📋 Listando notificações do usuário:', req.user.id);
     const { limit = '20', offset = '0' } = req.query || {};
     const safeLimit = Math.max(1, Math.min(100, parseInt(limit)));
     const safeOffset = Math.max(0, parseInt(offset));
 
-    logger.debug('Parâmetros:', { safeLimit, safeOffset });
+    console.log('🔍 Parâmetros:', { safeLimit, safeOffset });
 
     // Buscar dados do usuário para saber parent_reseller_id e role
     const { data: me, error: meError } = await supabase
@@ -386,7 +384,7 @@ router.get('/my', authenticateToken, debugRequest, validateMyListQuery, async (r
       .eq('id', req.user.id)
       .single();
     if (meError) {
-      logger.error('Erro ao buscar usuário atual:', meError);
+      console.error('❌ Erro ao buscar usuário atual:', meError);
       throw meError;
     }
 
@@ -412,7 +410,7 @@ router.get('/my', authenticateToken, debugRequest, validateMyListQuery, async (r
 
     if (orClauses.length > 0) {
       const orExpr = orClauses.join(',');
-      logger.debug('Filtro de audiência (OR):', orExpr);
+      console.log('🔍 Filtro de audiência (OR):', orExpr);
       q = q.or(orExpr);
     }
 

@@ -2,12 +2,11 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { param, query, body, validationResult } = require('express-validator');
 const { authenticateToken } = require('../middleware/auth');
-const { getActiveChannels, getChannel, hangupChannel } = require('../services/ariService');
-const amiService = require('../services/amiService');
 const cacheService = require('../services/cacheService');
-const { supabase } = require('../config/database');
+const { getActiveChannels, getChannel, hangupChannel } = require('../services/ariService');
+const agentsService = require('../services/agentsService');
 const User = require('../models/User');
-const logger = require('../utils/logger');
+const amiService = require('../services/amiService');
 
 // Configurações
 const config = {
@@ -47,14 +46,14 @@ const activeCallsCacheMiddleware = async (req, res, next) => {
     const originalJson = res.json;
     res.json = function(data) {
       // Cache por 3 segundos (reduzido para mais responsividade)
-      cacheService.set(cacheKey, JSON.stringify(data), 3).catch(err => logger.error('Cache SET error:', err));
+      cacheService.set(cacheKey, JSON.stringify(data), 3).catch(console.error);
       // Log silencioso para cache sets
       return originalJson.call(this, data);
     };
     
     next();
   } catch (error) {
-    logger.error('Active Calls Cache middleware error:', error);
+    console.error('❌ Active Calls Cache middleware error:', error);
     next();
   }
 };
@@ -111,7 +110,7 @@ async function getResellerClients(resellerId) {
     });
     return clients;
   } catch (error) {
-    logger.error(`Erro ao buscar clientes do reseller ${resellerId}:`, error);
+    console.error(`❌ Erro ao buscar clientes do reseller ${resellerId}:`, error);
     throw error;
   }
 }
@@ -180,11 +179,11 @@ async function getActiveCalls(req, res) {
       try {
         const amiCalls = await amiService.getActiveCallsByAccount(trimmedAccountCode);
         if (amiCalls && amiCalls.length > 0) {
-          logger.debug(`AMI encontradas ${amiCalls.length} chamadas para account ${trimmedAccountCode}`);
+          console.log(`📡 [AMI] Encontradas ${amiCalls.length} chamadas para account ${trimmedAccountCode}`);
           records = amiCalls;
         }
       } catch (amiErr) {
-        logger.warn('AMI erro ao buscar chamadas, usando fallback ARI:', amiErr.message);
+        console.warn('⚠️ [AMI] Erro ao buscar chamadas, usando fallback ARI:', amiErr.message);
       }
 
       // 🔄 FALLBACK 1: ARI com accountcode (se AMI não retornou dados)
@@ -213,7 +212,7 @@ async function getActiveCalls(req, res) {
             });
           }
         } catch (fbErr) {
-          logger.warn('ActiveCalls fallback por ramais falhou:', fbErr);
+          console.warn('[ActiveCalls] Fallback por ramais falhou:', fbErr);
         }
       }
     } else {
@@ -251,10 +250,10 @@ async function getActiveCalls(req, res) {
           if (!state || state === 'down' || state === 'destroyed') return false;
           return ext === targetExt;
         });
-        logger.debug(`Agent-context extension filter applied: ${beforeCount} -> ${records.length} for ext=${targetExt}`);
+        console.log(`[SECURITY] Agent-context extension filter applied: ${beforeCount} -> ${records.length} for ext=${targetExt}`);
       }
     } catch (extErr) {
-      logger.warn('Failed to apply agent extension filter:', extErr?.message || extErr);
+      console.warn('[SECURITY] Failed to apply agent extension filter:', extErr?.message || extErr);
     }
 
     // Build optional diagnostic summary
@@ -289,7 +288,7 @@ async function getActiveCalls(req, res) {
       };
 
       // Server-side log to aid investigation
-      logger.debug('ActiveCalls summary', JSON.stringify(summaryPayload));
+      console.log('[ActiveCalls] summary', JSON.stringify(summaryPayload));
 
       return res.json({
         success: true,
@@ -302,7 +301,7 @@ async function getActiveCalls(req, res) {
       });
     } catch (diagErr) {
       // If diagnostics fail, still return normal payload
-      logger.warn('ActiveCalls diagnostics error:', diagErr);
+      console.warn('ActiveCalls diagnostics error:', diagErr);
       return res.json({
         success: true,
         data: {
@@ -313,20 +312,26 @@ async function getActiveCalls(req, res) {
       });
     }
   } catch (error) {
-    logger.error('Erro ao buscar chamadas ativas do ARI:', {
+    console.error('❌ Erro ao buscar chamadas ativas do ARI:', {
       message: error.message,
       stack: error.stack,
       status: error.status,
-      accountcode: req.query.accountcode,
-      userId: req.user?.id
+      name: error.name,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      address: error.address,
+      port: error.port
     });
     
     // Log adicional para debugging
-    logger.error('ActiveCalls detalhes da requisição:', {
+    console.error('❌ [ActiveCalls] Detalhes da requisição:', {
       accountcode: req.query.accountcode,
       userId: req.user?.id,
       role: req.user?.role,
-      timestamp: new Date().toISOString()
+      url: req.originalUrl,
+      method: req.method,
+      headers: req.headers
     });
     
     const status = error.status || 500;
@@ -377,14 +382,14 @@ async function hangupCall(req, res) {
     const channelId = req.params.id;
     const currentUser = req.user;
 
-    logger.api(`Tentativa de hangup do canal ${channelId} pelo usuário ${currentUser.id}`);
+    console.log(`🔄 Tentativa de hangup do canal ${channelId} pelo usuário ${currentUser.id}`);
 
     // Buscar detalhes do canal no ARI para validar propriedade/escopo
     let channel;
     try {
       channel = await getChannel(channelId, { timeoutMs: config.ariTimeout });
     } catch (error) {
-      logger.error(`Erro ao consultar canal ${channelId}:`, error);
+      console.error(`❌ Erro ao consultar canal ${channelId}:`, error);
       
       if (error.status === 404) {
         return res.status(404).json({ 
@@ -403,7 +408,7 @@ async function hangupCall(req, res) {
     const hasAccess = await checkChannelAccess(currentUser, channel);
     
     if (!hasAccess) {
-      logger.warn(`Usuário ${currentUser.id} tentou encerrar canal sem permissão: ${channelId}`);
+      console.warn(`🚫 Usuário ${currentUser.id} tentou encerrar canal sem permissão: ${channelId}`);
       return res.status(403).json({ 
         success: false, 
         message: 'Você não tem permissão para encerrar esta chamada' 
@@ -418,14 +423,14 @@ async function hangupCall(req, res) {
         const channelExt = m ? m[1] : '';
         const agentExt = String(req.agent.ramal).trim().toLowerCase();
         if (channelExt !== agentExt) {
-          logger.warn(`Hangup blocked: agent ext ${agentExt} != channel ext ${channelExt} (channel ${channelId})`);
+          console.warn(`[SECURITY] Hangup blocked: agent ext ${agentExt} != channel ext ${channelExt} (channel ${channelId})`);
           return res.status(403).json({ 
             success: false, 
             message: 'Você não tem permissão para encerrar chamadas de outro ramal' 
           });
         }
       } catch (guardErr) {
-        logger.warn('Error validating agent extension ownership on hangup:', guardErr?.message || guardErr);
+        console.warn('[SECURITY] Error validating agent extension ownership on hangup:', guardErr?.message || guardErr);
         return res.status(403).json({ success: false, message: 'Validação de permissão do ramal falhou' });
       }
     }
@@ -447,7 +452,7 @@ async function hangupCall(req, res) {
     try {
       await hangupChannel(channelId, { timeoutMs: config.ariTimeout });
       
-      logger.api(`Canal ${channelId} encerrado com sucesso pelo usuário ${currentUser.id}`);
+      console.log(`✅ Canal ${channelId} encerrado com sucesso pelo usuário ${currentUser.id}`);
       
       return res.json({ 
         success: true, 
@@ -459,7 +464,7 @@ async function hangupCall(req, res) {
         }
       });
     } catch (hangupError) {
-      logger.error(`Erro ao executar hangup do canal ${channelId}:`, hangupError);
+      console.error(`❌ Erro ao executar hangup do canal ${channelId}:`, hangupError);
       
       if (hangupError.status === 404) {
         // Canal já foi encerrado por outro processo
@@ -478,7 +483,7 @@ async function hangupCall(req, res) {
     }
     
   } catch (error) {
-    logger.error('Erro geral ao encerrar chamada:', error);
+    console.error('❌ Erro geral ao encerrar chamada:', error);
     const status = error.status || 500;
     return res.status(status).json({
       success: false,
@@ -554,7 +559,7 @@ router.get('/stream', authenticateToken, async (req, res) => {
         const clients = await getResellerClients(currentUser.id);
         allowedAccounts = new Set([String(currentUser.id), ...clients.map(c => String(c.id))]);
       } catch (e) {
-        logger.warn('SSE active-calls falha ao buscar clientes do reseller:', e.message);
+        console.warn('⚠️ [SSE active-calls] Falha ao buscar clientes do reseller:', e.message);
         allowedAccounts = new Set([String(currentUser.id)]);
       }
     }
@@ -590,7 +595,7 @@ router.get('/stream', authenticateToken, async (req, res) => {
         timestamp: new Date().toISOString(),
       });
     } catch (snapErr) {
-      logger.warn('SSE active-calls erro ao enviar snapshot inicial:', snapErr.message);
+      console.warn('⚠️ [SSE active-calls] Erro ao enviar snapshot inicial:', snapErr.message);
     }
 
     // Listener de eventos do AMI
@@ -638,7 +643,7 @@ router.get('/stream', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('SSE active-calls erro ao iniciar stream:', error);
+    console.error('❌ [SSE active-calls] Erro ao iniciar stream:', error);
     try {
       res.status(500).json({ success: false, message: 'Falha ao iniciar stream de chamadas ativas' });
     } catch {}

@@ -10,10 +10,9 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const extensionStatusService = require('../services/extensionStatusService');
 const cacheService = require('../services/cacheService');
-const User = require('../models/User');
-const logger = require('../utils/logger');
 
 const router = express.Router();
+const User = require('../models/User');
 
 // =====================================================
 // Middleware: Cache inteligente para extension status
@@ -30,7 +29,7 @@ const extensionCacheMiddleware = async (req, res, next) => {
 
   // ✅ CORREÇÃO: DESABILITAR CACHE COMPLETAMENTE para garantir dados reais
   // TODO: Re-habilitar após confirmar que status está correto
-  logger.debug('Cache DESABILITADO para extension-status - dados sempre frescos');
+  console.log('🚫 Cache DESABILITADO para extension-status - dados sempre frescos');
   return next();
 
   // ✅ CORREÇÃO: Não aplicar cache quando forçar refresh
@@ -50,14 +49,14 @@ const extensionCacheMiddleware = async (req, res, next) => {
     const originalJson = res.json;
     res.json = function(data) {
       // Cache por 30 segundos (dados de status mudam rapidamente)
-      cacheService.set(cacheKey, JSON.stringify(data), 30).catch(err => logger.error('Cache SET error:', err));
+      cacheService.set(cacheKey, JSON.stringify(data), 30).catch(console.error);
       // Log silencioso para cache sets
       return originalJson.call(this, data);
     };
     
     next();
   } catch (error) {
-    logger.error('Extension Cache middleware error:', error);
+    console.error('❌ Extension Cache middleware error:', error);
     next();
   }
 };
@@ -69,7 +68,7 @@ router.use(extensionCacheMiddleware);
 // =====================================================
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    logger.api('Buscando status de todos os ramais...');
+    console.log('📋 [API] Buscando status de todos os ramais...');
 
     // ✅ CORREÇÃO: Forçar refresh se solicitado via query parameter
     const forceRefresh = req.query._fresh === 'true' || req.query.force === 'true';
@@ -86,7 +85,7 @@ router.get('/', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro na API de status dos ramais:', error);
+    console.error('❌ Erro na API de status dos ramais:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar status dos ramais',
@@ -111,7 +110,7 @@ router.post('/batch', authenticateToken, async (req, res) => {
     
     // Limitar a 7 ramais por lote conforme paginação
     const limitedExtensions = extensions.slice(0, 7);
-    logger.api(`Buscando status em lote de ${limitedExtensions.length} ramais:`, limitedExtensions);
+    console.log(`📋 [API] Buscando status em lote de ${limitedExtensions.length} ramais:`, limitedExtensions);
 
     const batchStatus = await extensionStatusService.getBatchExtensionStatus(limitedExtensions);
 
@@ -128,7 +127,7 @@ router.post('/batch', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar status em lote:', error);
+    console.error('❌ Erro ao buscar status em lote:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar status dos ramais em lote',
@@ -143,7 +142,7 @@ router.post('/batch', authenticateToken, async (req, res) => {
 router.get('/:extension', authenticateToken, async (req, res) => {
   try {
     const { extension } = req.params;
-    logger.api(`Buscando status do ramal: ${extension}`);
+    console.log(`📋 [API] Buscando status do ramal: ${extension}`);
 
     const extensionStatus = await extensionStatusService.getExtensionStatusById(extension);
 
@@ -158,7 +157,7 @@ router.get('/:extension', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error(`Erro ao buscar status do ramal ${req.params.extension}:`, error);
+    console.error(`❌ Erro ao buscar status do ramal ${req.params.extension}:`, error);
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar status do ramal',
@@ -172,7 +171,7 @@ router.get('/:extension', authenticateToken, async (req, res) => {
 // =====================================================
 router.get('/stats/monitoring', authenticateToken, async (req, res) => {
   try {
-    logger.api('Buscando estatísticas do monitoramento...');
+    console.log('📊 [API] Buscando estatísticas do monitoramento...');
 
     const stats = extensionStatusService.getMonitoringStats();
 
@@ -186,7 +185,7 @@ router.get('/stats/monitoring', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar estatísticas:', error);
+    console.error('❌ Erro ao buscar estatísticas:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar estatísticas do monitoramento',
@@ -200,7 +199,7 @@ router.get('/stats/monitoring', authenticateToken, async (req, res) => {
 // =====================================================
 router.post('/start', authenticateToken, async (req, res) => {
   try {
-    logger.api('Iniciando monitoramento de ramais...');
+    console.log('🚀 [API] Iniciando monitoramento de ramais...');
 
     extensionStatusService.startMonitoring();
 
@@ -214,7 +213,7 @@ router.post('/start', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao iniciar monitoramento:', error);
+    console.error('❌ Erro ao iniciar monitoramento:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao iniciar monitoramento',
@@ -228,7 +227,7 @@ router.post('/start', authenticateToken, async (req, res) => {
 // =====================================================
 router.post('/stop', authenticateToken, async (req, res) => {
   try {
-    logger.api('Parando monitoramento de ramais...');
+    console.log('🛑 [API] Parando monitoramento de ramais...');
 
     extensionStatusService.stopMonitoring();
 
@@ -241,7 +240,7 @@ router.post('/stop', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao parar monitoramento:', error);
+    console.error('❌ Erro ao parar monitoramento:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao parar monitoramento',
@@ -255,7 +254,7 @@ router.post('/stop', authenticateToken, async (req, res) => {
 // =====================================================
 router.post('/clear-cache', authenticateToken, async (req, res) => {
   try {
-    logger.api('Limpando cache de extension status...');
+    console.log('🗑️ [API] Limpando cache de extension status...');
 
     // Limpar cache Redis de extension status
     const redisDeleted = await cacheService.invalidate('extension-status:*');
@@ -277,7 +276,7 @@ router.post('/clear-cache', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao limpar cache de extension status:', error);
+    console.error('❌ Erro ao limpar cache de extension status:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao limpar cache',
@@ -325,7 +324,7 @@ router.get('/stream', authenticateToken, async (req, res) => {
             const clients = await User.findByReseller(currentUser.id);
             allowedUserIds = new Set([String(currentUser.id), ...clients.map(c => String(c.id))]);
           } catch (e) {
-            logger.warn('Falha ao buscar clientes do reseller:', e.message);
+            console.warn('⚠️ [SSE ext-status] Falha ao buscar clientes do reseller:', e.message);
             allowedUserIds = new Set([String(currentUser.id)]);
           }
         }
@@ -382,7 +381,7 @@ router.get('/stream', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao iniciar stream:', error);
+    console.error('❌ [SSE ext-status] Erro ao iniciar stream:', error);
     try {
       res.status(500).json({ success: false, message: 'Falha ao iniciar stream de status de ramais' });
     } catch {}

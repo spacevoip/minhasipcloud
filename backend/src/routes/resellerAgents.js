@@ -6,12 +6,14 @@
  */
 
 const express = require('express');
-// Cliente Supabase compartilhado
+const { createClient } = require('@supabase/supabase-js');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
 
-// Usar cliente Supabase compartilhado
-const { supabase } = require('../config/database');
+// Configuração do Supabase (igual a outras rotas)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const router = express.Router();
 

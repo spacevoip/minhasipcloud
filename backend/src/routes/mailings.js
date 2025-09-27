@@ -8,14 +8,10 @@
 
 const express = require('express');
 const { body, query, param, validationResult } = require('express-validator');
-const { authenticateToken } = require('../middleware/auth');
-const { supabase } = require('../config/database');
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
-const path = require('path');
 const validator = require('validator');
-const logger = require('../utils/logger');
+const { authenticateToken } = require('../middleware/auth');
+const { supabase, query: dbQuery } = require('../config/database');
+const campaignCacheService = require('../services/campaignCacheService');
 
 const router = express.Router();
 
@@ -57,7 +53,7 @@ router.get('/', authenticateToken, [
   query('search').optional().isString().isLength({ max: 255 }).withMessage('Busca muito longa')
 ], async (req, res) => {
   try {
-    logger.api(`Listando campanhas para usuário: ${req.user.id}`);
+    console.log(`📧 [MAILINGS] Listando campanhas para usuário: ${req.user.id}`);
 
     // Validação
     const errors = validationResult(req);
@@ -109,7 +105,7 @@ router.get('/', authenticateToken, [
     const { data: mailings, error, count } = await query;
 
     if (error) {
-      logger.error('Erro ao buscar campanhas:', error);
+      console.error('❌ [MAILINGS] Erro ao buscar campanhas:', error);
       return res.status(500).json({ 
         success: false, 
         error: 'Erro ao buscar campanhas' 
@@ -122,7 +118,7 @@ router.get('/', authenticateToken, [
       .select('*', { count: 'exact', head: true })
       .eq('user_id', req.user.id);
 
-    logger.debug(`${mailings?.length || 0} campanhas encontradas`);
+    console.log(`✅ [MAILINGS] ${mailings?.length || 0} campanhas encontradas`);
 
     res.json({
       success: true,
@@ -184,14 +180,14 @@ router.get('/:campaignId/contacts/resolve', authenticateToken, [
 
     const { data, error } = await q;
     if (error) {
-      logger.error('Erro ao resolver contato:', error);
+      console.error('❌ [MAILINGS] Erro ao resolver contato:', error);
       return res.status(500).json({ success: false, error: 'Erro ao resolver contato' });
     }
 
     return res.json({ success: true, data: data && data[0] ? data[0] : null });
 
   } catch (error) {
-    logger.error('Erro interno (resolve):', error);
+    console.error('❌ [MAILINGS] Erro interno (resolve):', error);
     res.status(500).json({ success: false, error: 'Erro interno do servidor' });
   }
 });
@@ -203,7 +199,7 @@ router.get('/:campaignId/contacts/resolve', authenticateToken, [
 router.get('/:id', authenticateToken, idValidation, async (req, res) => {
   try {
     const { id } = req.params;
-    logger.api(`Buscando campanha: ${id}`);
+    console.log(`📧 [MAILINGS] Buscando campanha: ${id}`);
 
     // Validação
     const errors = validationResult(req);
@@ -237,14 +233,14 @@ router.get('/:id', authenticateToken, idValidation, async (req, res) => {
       .single();
 
     if (error || !mailing) {
-      logger.warn(`Campanha não encontrada: ${id}`);
+      console.log(`⚠️ [MAILINGS] Campanha não encontrada: ${id}`);
       return res.status(404).json({ 
         success: false, 
         error: 'Campanha não encontrada' 
       });
     }
 
-    logger.debug(`Campanha encontrada: ${mailing.name}`);
+    console.log(`✅ [MAILINGS] Campanha encontrada: ${mailing.name}`);
 
     res.json({
       success: true,
@@ -265,7 +261,7 @@ router.get('/:id', authenticateToken, idValidation, async (req, res) => {
 // =====================================================
 router.post('/', authenticateToken, mailingValidation, async (req, res) => {
   try {
-    logger.api(`Criando nova campanha para usuário: ${req.user.id}`);
+    console.log(`📧 [MAILINGS] Criando nova campanha para usuário: ${req.user.id}`);
 
     // Validação
     const errors = validationResult(req);
@@ -279,14 +275,13 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
 
     const { name, agent_id, content = {} } = req.body;
     
-    logger.debug('Dados recebidos na rota:', {
-      name,
-      agent_id,
-      contentKeys: Object.keys(content),
-      distributionMode: content.distributionMode,
-      selectedAgents: content.selectedAgents,
-      agentDistribution: content.agentDistribution
-    });
+    console.log(`🔧 [DEBUG] Dados recebidos na rota:`);
+    console.log(`   NAME: ${name}`);
+    console.log(`   AGENT_ID: ${agent_id}`);
+    console.log(`   CONTENT KEYS: ${Object.keys(content)}`);
+    console.log(`   CONTENT.distributionMode: ${content.distributionMode}`);
+    console.log(`   CONTENT.selectedAgents: ${JSON.stringify(content.selectedAgents)}`);
+    console.log(`   CONTENT.agentDistribution: ${content.agentDistribution}`);
     
     // Extrair contatos e dados de distribuição do objeto content
     const contacts = content.contacts || [];
@@ -294,17 +289,15 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
     const selectedAgents = content.selectedAgents || [];
     const agentDistribution = content.agentDistribution || 'automatic';
     
-    logger.debug('Processamento de campanha:', {
-      contactsCount: contacts.length,
-      distributionMode,
-      selectedAgentsCount: selectedAgents.length,
-      agentDistribution
-    });
+    console.log(`   CONTACTS: ${contacts.length} contatos`);
+    console.log(`   DISTRIBUTION_MODE: ${distributionMode}`);
+    console.log(`   SELECTED_AGENTS: ${selectedAgents.length} agentes`);
+    console.log(`   AGENT_DISTRIBUTION: ${agentDistribution}`);
 
     // Verificar se o agente pertence ao usuário (apenas para campanhas com agente único)
     let agent = null;
     if (agent_id) {
-      logger.debug(`Verificando agente: ${agent_id} para usuário: ${req.user.id}`);
+      console.log(`🔍 [DEBUG] Verificando agente: ${agent_id} para usuário: ${req.user.id}`);
       
       const { data: agentData, error: agentError } = await supabase
         .from('agentes_pabx')
@@ -314,7 +307,7 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
         .single();
 
       if (agentError || !agentData) {
-        logger.warn('Agente não encontrado:', agentError);
+        console.log(`❌ [DEBUG] Agente não encontrado. Error:`, agentError);
         return res.status(400).json({ 
           success: false, 
           error: 'Agente não encontrado ou não pertence ao usuário' 
@@ -322,7 +315,7 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
       }
       agent = agentData;
     } else if (distributionMode === 'multiple' && selectedAgents.length > 0) {
-      logger.debug('Campanha com múltiplos agentes - validando ramais selecionados');
+      console.log(`🔍 [DEBUG] Campanha com múltiplos agentes - validando ramais selecionados`);
       
       // Verificar se todos os agentes selecionados pertencem ao usuário
       const agentIds = selectedAgents.map(a => a.id);
@@ -333,7 +326,7 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
         .eq('user_id', req.user.id);
 
       if (agentsError || !agentsData || agentsData.length !== selectedAgents.length) {
-        logger.warn('Alguns agentes não encontrados:', agentsError);
+        console.log(`❌ [DEBUG] Alguns agentes não encontrados. Error:`, agentsError);
         return res.status(400).json({ 
           success: false, 
           error: 'Alguns agentes selecionados não foram encontrados ou não pertencem ao usuário' 
@@ -349,7 +342,7 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
         }
       });
     } else {
-      logger.debug('Campanha com múltiplos agentes - agent_id é null');
+      console.log(`🔍 [DEBUG] Campanha com múltiplos agentes - agent_id é null`);
     }
 
     // Verificar limite de campanhas por usuário (máximo 3)
@@ -359,7 +352,7 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
       .eq('user_id', req.user.id);
 
     if (countError) {
-      logger.error('Erro ao contar campanhas existentes:', countError);
+      console.log(`❌ [DEBUG] Erro ao contar campanhas existentes:`, countError);
       return res.status(500).json({ 
         success: false, 
         error: 'Erro interno ao verificar campanhas existentes' 
@@ -367,10 +360,10 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
     }
 
     const campaignCount = existingCampaigns?.length || 0;
-    logger.debug(`Usuário ${req.user.id} possui ${campaignCount} campanhas`);
+    console.log(`📊 [DEBUG] Usuário ${req.user.id} possui ${campaignCount} campanhas`);
 
     if (campaignCount >= 3) {
-      logger.warn(`Limite de campanhas atingido para usuário ${req.user.id}`);
+      console.log(`🚫 [DEBUG] Limite de campanhas atingido para usuário ${req.user.id}`);
       return res.status(400).json({ 
         success: false, 
         error: 'Limite máximo de 3 campanhas atingido',
@@ -402,7 +395,7 @@ router.post('/', authenticateToken, mailingValidation, async (req, res) => {
       });
     }
 
-    logger.api(`Campanha criada: ${name} (${result.campaignId}) com ${result.imported} contatos`);
+    console.log(`✅ [MAILINGS] Campanha criada: ${name} (${result.campaignId}) com ${result.imported} contatos`);
 
     res.status(201).json({
       success: true,
@@ -433,14 +426,8 @@ router.get('/agent/:agentId', authenticateToken, [
 ], async (req, res) => {
   try {
     const { agentId } = req.params;
-    logger.api(`Buscando campanhas para agente: ${agentId}`);
-    logger.debug('Context:', {
-      userId: req?.user?.id,
-      role: req?.user?.role,
-      agentTokenUserId: req?.agent?.user_id || 'n/a',
-      tokenAgentId: req?.agent?.id || 'n/a',
-      ramal: req?.agent?.ramal || 'n/a'
-    });
+    console.log(`📧 [MAILINGS] Buscando campanhas para agente: ${agentId}`);
+    console.log(`[MAILINGS] Context: user.id=${req?.user?.id} role=${req?.user?.role} agentTokenUserId=${req?.agent?.user_id || 'n/a'} tokenAgentId=${req?.agent?.id || 'n/a'} ramal=${req?.agent?.ramal || 'n/a'}`);
 
     // Validação
     const errors = validationResult(req);

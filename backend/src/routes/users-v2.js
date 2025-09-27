@@ -7,14 +7,12 @@
  */
 
 const express = require('express');
-const bcrypt = require('bcrypt');
-const { body, validationResult, param, query } = require('express-validator');
-const { supabase } = require('../config/database');
+const bcrypt = require('bcryptjs');
+const { body, query, param, validationResult } = require('express-validator');
 const User = require('../models/User');
-const cacheService = require('../services/cacheService');
 const { authenticateToken } = require('../middleware/auth');
 const { sanitizeUserOutput } = require('../utils/sanitize');
-const logger = require('../utils/logger');
+const cacheService = require('../services/cacheService');
 
 const router = express.Router();
 
@@ -37,7 +35,7 @@ const cacheMiddleware = async (req, res, next) => {
     const cached = await cacheService.get(cacheKey);
     
     if (cached) {
-      logger.cache(`Cache HIT: ${cacheKey}`);
+      console.log(`✅ Cache HIT: ${cacheKey}`);
       return res.json(JSON.parse(cached));
     }
     
@@ -45,14 +43,14 @@ const cacheMiddleware = async (req, res, next) => {
     const originalJson = res.json;
     res.json = function(data) {
       // Salvar no cache com TTL de 5 minutos
-      cacheService.set(cacheKey, JSON.stringify(data), 300).catch(err => logger.error('Cache SET error:', err));
-      logger.cache(`Cache SET: ${cacheKey}`);
+      cacheService.set(cacheKey, JSON.stringify(data), 300).catch(console.error);
+      console.log(`💾 Cache SET: ${cacheKey}`);
       return originalJson.call(this, data);
     };
     
     next();
   } catch (error) {
-    logger.error('Cache middleware error:', error);
+    console.error('❌ Cache middleware error:', error);
     next();
   }
 };
@@ -70,7 +68,7 @@ const idValidation = [param('id').isUUID().withMessage('ID inválido (UUID esper
 router.get('/:id/debug', authenticateToken, idValidation, async (req, res) => {
   try {
     const { id } = req.params;
-    logger.debug(`Verificando campos boolean para usuário: ${id}`);
+    console.log(`🔧 [DEBUG] Verificando campos boolean para usuário: ${id}`);
 
     // Verificar permissão (admin apenas)
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -141,12 +139,12 @@ router.get('/:id/debug', authenticateToken, idValidation, async (req, res) => {
       }
     };
 
-    logger.debug('Resultado completo:', JSON.stringify(response.debug, null, 2));
+    console.log(`🔧 [DEBUG] Resultado completo:`, JSON.stringify(response.debug, null, 2));
 
     res.json(response);
 
   } catch (error) {
-    logger.error('Erro no debug:', error);
+    console.error('❌ Erro no debug:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -167,7 +165,7 @@ router.patch('/:id/controls', authenticateToken, [
     const { id } = req.params;
     const { field, value } = req.body;
     
-    logger.debug(`Atualizando ${field} = ${value} para usuário ${id}`);
+    console.log(`🔧 [CONTROLS] Atualizando ${field} = ${value} para usuário ${id}`);
 
     // Verificar permissão (admin/collaborator apenas)
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -198,7 +196,7 @@ router.patch('/:id/controls', authenticateToken, [
       .single();
     
     if (updateError) {
-      logger.error(`Erro Supabase ao atualizar ${field}:`, updateError);
+      console.error(`❌ [CONTROLS] Erro Supabase ao atualizar ${field}:`, updateError);
       throw new Error(`Erro do Supabase: ${updateError.message}`);
     }
 
@@ -217,12 +215,12 @@ router.patch('/:id/controls', authenticateToken, [
       .single();
 
     if (verifyError) {
-      logger.error(`Erro ao verificar ${field}:`, verifyError);
+      console.error(`❌ [CONTROLS] Erro ao verificar ${field}:`, verifyError);
     }
 
     const actualValue = Boolean(verifyData?.[field]);
     
-    logger.debug(`Campo ${field} atualizado: ${value} -> ${actualValue}`);
+    console.log(`✅ [CONTROLS] Campo ${field} atualizado: ${value} -> ${actualValue}`);
 
     // Invalidar cache
     await invalidateUsersCache();
@@ -239,7 +237,7 @@ router.patch('/:id/controls', authenticateToken, [
     });
 
   } catch (error) {
-    logger.error('Erro ao atualizar controles:', error);
+    console.error('❌ Erro ao atualizar controles:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -256,9 +254,9 @@ const invalidateUsersCache = async () => {
     await cacheService.invalidate('users-v2:*');
     await cacheService.invalidate('pabx:users:*');
     await cacheService.invalidate('pabx:stats:*');
-    logger.cache('Cache de usuários invalidado');
+    console.log('🗑️ Cache de usuários invalidado');
   } catch (error) {
-    logger.error('Erro ao invalidar cache:', error);
+    console.error('❌ Erro ao invalidar cache:', error);
   }
 };
 
@@ -274,7 +272,7 @@ router.post('/:id/change-plan', authenticateToken, [
     const { id } = req.params;
     const { newPlanId, note } = req.body;
 
-    logger.api(`Alterando plano preservando vencimento: user=${id} -> plan=${newPlanId}`);
+    console.log(`🔁 [API V2] Alterando plano preservando vencimento: user=${id} -> plan=${newPlanId}`);
 
     // Permissão: admin/collaborator apenas
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -354,7 +352,7 @@ router.post('/:id/change-plan', authenticateToken, [
       .select()
       .single();
     if (updErr) {
-      logger.error('Erro ao atualizar plan_id:', updErr);
+      console.error('❌ Erro ao atualizar plan_id:', updErr);
       return res.status(400).json({ success: false, error: 'Não foi possível alterar o plano', details: updErr.message });
     }
 
@@ -374,7 +372,7 @@ router.post('/:id/change-plan', authenticateToken, [
         });
         finance = { amount, type };
       } catch (finErr) {
-        logger.warn('Falha ao registrar lançamento financeiro:', finErr?.message || finErr);
+        console.warn('⚠️ Falha ao registrar lançamento financeiro:', finErr?.message || finErr);
       }
     }
 
@@ -396,7 +394,7 @@ router.post('/:id/change-plan', authenticateToken, [
     });
 
   } catch (error) {
-    logger.error('Erro ao alterar plano (API V2):', error);
+    console.error('❌ Erro ao alterar plano (API V2):', error);
     res.status(500).json({ success: false, error: 'Erro interno do servidor', message: error.message });
   }
 });
@@ -422,7 +420,7 @@ const listUsersValidation = [
 // =====================================================
 router.get('/', authenticateToken, listUsersValidation, async (req, res) => {
   try {
-    logger.api('Buscando usuários...');
+    console.log('📋 [API V2] Buscando usuários...');
     
     // Verificar permissão
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -493,7 +491,7 @@ router.get('/', authenticateToken, listUsersValidation, async (req, res) => {
     res.json(response);
 
   } catch (error) {
-    logger.error('Erro ao buscar usuários:', error);
+    console.error('❌ Erro ao buscar usuários:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -508,7 +506,7 @@ router.get('/', authenticateToken, listUsersValidation, async (req, res) => {
 router.get('/:id', authenticateToken, idValidation, async (req, res) => {
   try {
     const { id } = req.params;
-    logger.api(`Buscando usuário: ${id}`);
+    console.log(`👤 [API V2] Buscando usuário: ${id}`);
 
     // Verificar permissão (admin, collaborator ou próprio usuário)
     if (!['admin', 'collaborator'].includes(req.user.role) && req.user.id !== id) {
@@ -540,17 +538,13 @@ router.get('/:id', authenticateToken, idValidation, async (req, res) => {
     const sanitizedUser = sanitizeUserOutput(user);
     
     // Log detalhado dos campos de controle
-    logger.debug(`Campos de controle para usuário ${id}:`, {
+    console.log(`🔍 [API V2] Campos de controle para usuário ${id}:`, {
       original_sms_send: user.sms_send,
       original_webrtc: user.webrtc,
       original_auto_discagem: user.auto_discagem,
-      original_up_audio: user.up_audio,
-      original_mailling_up: user.mailling_up,
       sanitized_sms_send: sanitizedUser.sms_send,
       sanitized_webrtc: sanitizedUser.webrtc,
-      sanitized_auto_discagem: sanitizedUser.auto_discagem,
-      sanitized_up_audio: sanitizedUser.up_audio,
-      sanitized_mailling_up: sanitizedUser.mailling_up
+      sanitized_auto_discagem: sanitizedUser.auto_discagem
     });
 
     const response = {
@@ -564,7 +558,7 @@ router.get('/:id', authenticateToken, idValidation, async (req, res) => {
     res.json(response);
 
   } catch (error) {
-    logger.error('Erro ao buscar usuário:', error);
+    console.error('❌ Erro ao buscar usuário:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -586,7 +580,7 @@ const createUserValidation = [
 
 router.post('/', authenticateToken, createUserValidation, async (req, res) => {
   try {
-    logger.api('Criando usuário...');
+    console.log('➕ [API V2] Criando usuário...');
 
     // Verificar permissão
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -618,7 +612,7 @@ router.post('/', authenticateToken, createUserValidation, async (req, res) => {
     // Invalidar cache relacionado
     // (Sem cache para invalidar)
     
-    logger.api(`Usuário criado: ${newUser.name}`);
+    console.log(`✅ Usuário criado: ${newUser.name}`);
 
     res.status(201).json({
       success: true,
@@ -627,7 +621,7 @@ router.post('/', authenticateToken, createUserValidation, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Erro ao criar usuário:', error);
+    console.error('❌ Erro ao criar usuário:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -650,7 +644,7 @@ router.put('/:id', authenticateToken, [
 ], async (req, res) => {
   try {
     const { id } = req.params;
-    logger.api(`Atualizando usuário: ${id}`);
+    console.log(`📝 [API V2] Atualizando usuário: ${id}`);
 
     // Verificar permissão
     if (!['admin', 'collaborator'].includes(req.user.role) && req.user.id !== id) {
@@ -702,7 +696,7 @@ router.put('/:id', authenticateToken, [
     });
 
   } catch (error) {
-    logger.error('Erro ao atualizar usuário:', error);
+    console.error('❌ Erro ao atualizar usuário:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -723,7 +717,7 @@ router.post('/:id/credits', authenticateToken, [
     const { id } = req.params;
     const { amount, note } = req.body;
     
-    logger.api(`Adicionando créditos para usuário: ${id}`);
+    console.log(`💰 [API V2] Adicionando créditos para usuário: ${id}`);
 
     // Verificar permissão
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -765,7 +759,7 @@ router.post('/:id/credits', authenticateToken, [
         product: 'credits_adjustment'
       });
     } catch (finErr) {
-      logger.warn('Falha ao registrar lançamento financeiro:', finErr?.message || finErr);
+      console.warn('⚠️ [API V2] Falha ao registrar lançamento financeiro:', finErr?.message || finErr);
     }
 
     // Invalidar cache relacionado
@@ -778,7 +772,7 @@ router.post('/:id/credits', authenticateToken, [
     });
 
   } catch (error) {
-    logger.error('Erro ao adicionar créditos:', error);
+    console.error('❌ Erro ao adicionar créditos:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -798,7 +792,7 @@ router.post('/:id/renew-plan', authenticateToken, [
     const { id } = req.params;
     const { planId } = req.body;
     
-    logger.api(`Renovando plano para usuário: ${id}`);
+    console.log(`🔄 [API V2] Renovando plano para usuário: ${id}`);
 
     // Verificar permissão
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -837,7 +831,7 @@ router.post('/:id/renew-plan', authenticateToken, [
     });
 
   } catch (error) {
-    logger.error('Erro ao renovar plano:', error);
+    console.error('❌ Erro ao renovar plano:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',
@@ -851,7 +845,7 @@ router.post('/:id/renew-plan', authenticateToken, [
 // =====================================================
 router.get('/stats/overview', authenticateToken, async (req, res) => {
   try {
-    logger.api('Buscando estatísticas de usuários...');
+    console.log('📊 [API V2] Buscando estatísticas de usuários...');
 
     // Verificar permissão
     if (!['admin', 'collaborator'].includes(req.user.role)) {
@@ -874,7 +868,7 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
     res.json(response);
 
   } catch (error) {
-    logger.error('Erro ao buscar estatísticas:', error);
+    console.error('❌ Erro ao buscar estatísticas:', error);
     res.status(500).json({
       success: false,
       error: 'Erro interno do servidor',

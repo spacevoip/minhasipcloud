@@ -2,7 +2,6 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const { supabase } = require('../config/database');
 const cacheService = require('../services/cacheService');
-const logger = require('../utils/logger');
 
 // Preferred tables in order if CDR_TABLE is not set or empty
 const CDR_TABLE_CANDIDATES = [
@@ -35,7 +34,7 @@ const cdrCacheMiddleware = async (req, res, next) => {
     const cached = await cacheService.get(cacheKey);
     
     if (cached) {
-      logger.cache(`Cache HIT: ${cacheKey}`);
+      console.log(`✅ Cache HIT: ${cacheKey}`);
       return res.json(JSON.parse(cached));
     }
     
@@ -43,14 +42,14 @@ const cdrCacheMiddleware = async (req, res, next) => {
     const originalJson = res.json;
     res.json = function(data) {
       // Salvar no cache com TTL de 2 minutos (dados de CDR mudam frequentemente)
-      cacheService.set(cacheKey, JSON.stringify(data), 120).catch(err => logger.error('Cache SET error:', err));
-      logger.cache(`Cache SET: ${cacheKey} (TTL: 120s)`);
+      cacheService.set(cacheKey, JSON.stringify(data), 120).catch(console.error);
+      console.log(`💾 Cache SET: ${cacheKey} (TTL: 120s)`);
       return originalJson.call(this, data);
     };
     
     next();
   } catch (error) {
-    logger.error('CDR Cache middleware error:', error);
+    console.error('❌ CDR Cache middleware error:', error);
     next();
   }
 };
@@ -75,7 +74,7 @@ async function resolveCdrTable(preferred) {
         .limit(1);
       if (!error) {
         if (table === 'cdr') {
-          logger.warn('CDR usando tabela legacy "cdr". Considere configurar CDR_TABLE para *_pabx.');
+          console.warn('⚠️ [CDR] Usando tabela legacy "cdr". Considere configurar CDR_TABLE para *_pabx.');
         }
         return { table, tried };
       }
@@ -94,12 +93,12 @@ async function resolveCdrTable(preferred) {
 router.delete('/', async (req, res) => {
   try {
     if (debug) {
-      logger.debug('CDR DELETE request received', { method: req.method, url: req.originalUrl, contentType: req.headers['content-type'] });
+      console.log('🗑️ [CDR] DELETE request received', { method: req.method, url: req.originalUrl, contentType: req.headers['content-type'] });
     }
     
     const userId = req.user?.id;
     if (!userId) {
-      logger.warn('CDR DELETE: Usuário não autenticado');
+      console.log('❌ [CDR] DELETE: Usuário não autenticado');
       return res.status(401).json({ success: false, message: 'Usuário não autenticado' });
     }
 
@@ -112,11 +111,11 @@ router.delete('/', async (req, res) => {
     }
     
     if (debug) {
-      logger.debug('CDR IDs recebidos para deletar (count):', ids.length);
+      console.log('🗑️ [CDR] IDs recebidos para deletar (count):', ids.length);
     }
     
     if (ids.length === 0) {
-      logger.warn('CDR DELETE: Nenhum ID fornecido');
+      console.log('⚠️ [CDR] DELETE: Nenhum ID fornecido');
       return res.status(400).json({ 
         success: false, 
         message: 'É necessário fornecer ids (array) ou uniqueid (string)',
@@ -126,9 +125,9 @@ router.delete('/', async (req, res) => {
 
     const preferred = process.env.CDR_TABLE && String(process.env.CDR_TABLE).trim();
     const { table: tableName } = await resolveCdrTable(preferred);
-    if (debug) logger.debug('CDR usando tabela:', tableName);
+    if (debug) console.log('🗑️ [CDR] Usando tabela:', tableName);
 
-    if (debug) logger.debug('CDR executando delete para userId:', userId, 'ids_count:', ids.length);
+    if (debug) console.log('🗑️ [CDR] Executando delete para userId:', userId, 'ids_count:', ids.length);
     
     const { data, error, count } = await supabase
       .from(tableName)
@@ -138,12 +137,12 @@ router.delete('/', async (req, res) => {
       .select('uniqueid', { count: 'exact' });
 
     if (error) {
-      logger.error('CDR DELETE Supabase error:', error.message);
+      console.error('❌ [CDR] DELETE Supabase error:', error.message);
       throw error;
     }
 
     const deleted = typeof count === 'number' ? count : (Array.isArray(data) ? data.length : 0);
-    if (debug) logger.debug('CDR DELETE concluído. Registros deletados:', deleted);
+    if (debug) console.log('✅ [CDR] DELETE concluído. Registros deletados:', deleted);
   
     return res.json({ 
       success: true, 
@@ -155,7 +154,7 @@ router.delete('/', async (req, res) => {
       } 
     });
   } catch (error) {
-    logger.error('CDR DELETE error:', error);
+    console.error('❌ [CDR] DELETE error:', error);
     return res.status(500).json({ 
       success: false, 
       message: error?.message || 'Erro interno do servidor',
@@ -171,7 +170,7 @@ router.delete('/', async (req, res) => {
 router.get('/agent/:ramal', authenticateToken, async (req, res) => {
   try {
     const reqId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    if (debug) logger.debug('CDR-AGENT Start', { reqId, ramal: req.params.ramal, at: new Date().toISOString() });
+    if (debug) console.log('🔎 [CDR-AGENT] Start', { reqId, ramal: req.params.ramal, at: new Date().toISOString() });
     
     const preferred = process.env.CDR_TABLE && String(process.env.CDR_TABLE).trim();
     const { table: tableName, tried } = await resolveCdrTable(preferred);

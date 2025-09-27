@@ -2,12 +2,16 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 
-// Usar cliente Supabase compartilhado
-const { supabase } = require('../config/database');
+// Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL || 'http://31.97.84.157:8000',
+  process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+);
 
 // Middleware para verificar token JWT (suporta header e query param)
 const verifyToken = (req, res, next) => {
