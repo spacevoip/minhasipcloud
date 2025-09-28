@@ -266,7 +266,7 @@ export default function AdminUsersPage() {
       setSelectedUsers(new Set());
       toast.success('Usuários bloqueados', `${updatedIds.length} usuário(s) bloqueado(s) com sucesso`);
     } catch (error) {
-      console.error('Erro no bloqueio em lote:', error);
+      // Error in bulk blocking
       toast.error('Erro', 'Falha ao bloquear usuários selecionados');
     } finally {
       setIsBulkBlocking(false);
@@ -311,7 +311,7 @@ export default function AdminUsersPage() {
       setSelectedUsers(new Set());
       toast.success('Usuários desbloqueados', `${updatedIds.length} usuário(s) desbloqueado(s) com sucesso`);
     } catch (error) {
-      console.error('Erro no desbloqueio em lote:', error);
+      // Error in bulk unblocking
       toast.error('Erro', 'Falha ao desbloquear usuários selecionados');
     } finally {
       setIsBulkUnblocking(false);
@@ -436,7 +436,7 @@ export default function AdminUsersPage() {
         setTotalPagesCount(0);
       }
     } catch (error) {
-      console.error(' Erro ao carregar usuários via API:', error);
+      // Error loading users via API
       if (!silent) {
         toast.error('Erro', 'Erro ao carregar usuários da API. Verifique a conexão.');
       }
@@ -465,7 +465,7 @@ export default function AdminUsersPage() {
       const plans = await plansService.getAllPlans();
       setAvailablePlans(plans);
     } catch (error) {
-      console.error(' Erro ao carregar planos:', error);
+      // Error loading plans
       // SEM FALLBACK MOCK - apenas planos reais
       setAvailablePlans([]);
       toast.error('Erro', 'Não foi possível carregar os planos. Verifique a conexão.');
@@ -759,7 +759,7 @@ export default function AdminUsersPage() {
       toast.success('Usuário Criado', `${newUser.name} foi criado com sucesso!`);
       closeNewUserModal();
     } catch (error) {
-      console.error('Erro ao criar usuário:', error);
+      // Error creating user
       toast.error('Erro', 'Erro ao criar usuário. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -818,7 +818,7 @@ export default function AdminUsersPage() {
       toast.success('Créditos Retirados', `R$ ${amount.toFixed(2)} retirados de ${user?.name || 'usuário'}`);
       closeWithdrawCreditsModal();
     } catch (error) {
-      console.error('Erro ao retirar créditos:', error);
+      // Error withdrawing credits
       toast.error('Erro', 'Erro ao retirar créditos. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -872,7 +872,7 @@ export default function AdminUsersPage() {
       toast.success('Créditos Adicionados', `R$ ${amount.toFixed(2)} adicionados para ${user?.name || 'usuário'}`);
       closeAddCreditsModal();
     } catch (error) {
-      console.error('Erro ao adicionar créditos:', error);
+      // Error adding credits
       toast.error('Erro', 'Erro ao adicionar créditos. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -919,7 +919,7 @@ export default function AdminUsersPage() {
       toast.success('Usuário Excluído', result.message || 'Usuário e seus ramais excluídos com sucesso!');
       
     } catch (error) {
-      console.error('Erro ao excluir usuário:', error);
+      // Error deleting user
       toast.error('Erro', 'Erro ao excluir usuário. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -989,7 +989,7 @@ export default function AdminUsersPage() {
       toast.success('Usuários Excluídos', result.message || `${userIds.length} usuários e seus ramais excluídos com sucesso!`);
       
     } catch (error) {
-      console.error('Erro ao excluir usuários em lote:', error);
+      // Error deleting users in bulk
       toast.error('Erro', 'Erro ao excluir usuários. Tente novamente.');
     } finally {
       setIsDeletingBulk(false);
@@ -1019,7 +1019,7 @@ export default function AdminUsersPage() {
       
       toast.success(`Usuário ${newStatus === 'active' ? 'desbloqueado' : 'bloqueado'} com sucesso!`);
     } catch (error) {
-      console.error('Erro ao alterar status do usuário:', error);
+      // Error changing user status
       toast.error('Erro ao alterar status do usuário');
     } finally {
       setIsBlockingUser(false);
@@ -1052,7 +1052,7 @@ export default function AdminUsersPage() {
       setShowConfirmRenewModal(false);
       await loadUsers(true);
     } catch (error) {
-      console.error('❌ Erro ao renovar plano:', error);
+      // Error renewing plan (confirm modal)
       toast.error('Erro', 'Falha ao renovar plano');
     } finally {
       setIsLoading(false);
@@ -1118,7 +1118,7 @@ export default function AdminUsersPage() {
       // Atualizar lista de usuários após renovação
       await loadUsers();
     } catch (error) {
-      console.error('❌ Erro ao renovar plano:', error);
+      // Error renewing plan (renewal modal)
       toast.error('Erro', 'Falha ao renovar plano');
     } finally {
       setIsLoading(false);
@@ -1187,7 +1187,7 @@ export default function AdminUsersPage() {
       closeLinkPlanModal();
       
     } catch (error) {
-      console.error('❌ Erro ao vincular plano:', error);
+      // Error linking plan
       toast.error('Erro', `Erro ao vincular plano: ${error instanceof Error ? error.message : 'Tente novamente.'}`);
     } finally {
       setIsLoading(false);
@@ -1293,7 +1293,7 @@ export default function AdminUsersPage() {
       }, 200);
       
     } catch (error) {
-      console.error('Erro ao atualizar usuário:', error);
+      // Error updating user
       toast.error('Erro', 'Erro ao atualizar usuário. Tente novamente.');
     } finally {
       setIsLoading(false);

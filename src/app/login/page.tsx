@@ -3,11 +3,64 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Phone, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
-import Script from 'next/script'
+import Script from 'next/script';
 import { useAuthStore } from '@/store/auth';
 import { agentAuthService } from '@/services/agentAuthService';
 import { ToastProvider, useToast } from '@/components/ui/toast';
 import AgentWelcomeLoader from '@/components/AgentWelcomeLoader';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+function isValidEmail(value: string): boolean {
+  if (!value) return false;
+  return EMAIL_REGEX.test(value.trim());
+}
+
+function isValidCPF(cpf: string): boolean {
+  if (!cpf || cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  const calcCheckDigit = (digits: string, multipliers: number[]): number => {
+    const sum = multipliers.reduce((acc, m, idx) => acc + parseInt(digits[idx], 10) * m, 0);
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  const firstNine = cpf.substring(0, 9);
+  const firstCheck = calcCheckDigit(firstNine, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  if (firstCheck !== parseInt(cpf[9], 10)) return false;
+
+  const firstTen = cpf.substring(0, 10);
+  const secondCheck = calcCheckDigit(firstTen, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return secondCheck === parseInt(cpf[10], 10);
+}
+
+function isValidCNPJ(cnpj: string): boolean {
+  if (!cnpj || cnpj.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+  const calcCheckDigit = (digits: string, multipliers: number[]): number => {
+    const sum = multipliers.reduce((acc, m, idx) => acc + parseInt(digits[idx], 10) * m, 0);
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  const firstTwelve = cnpj.substring(0, 12);
+  const firstCheck = calcCheckDigit(firstTwelve, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  if (firstCheck !== parseInt(cnpj[12], 10)) return false;
+
+  const firstThirteen = cnpj.substring(0, 13);
+  const secondCheck = calcCheckDigit(firstThirteen, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return secondCheck === parseInt(cnpj[13], 10);
+}
+
+function isValidCpfCnpj(value: string): boolean {
+  if (!value) return false;
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 11) return isValidCPF(digits);
+  if (digits.length === 14) return isValidCNPJ(digits);
+  return false;
+}
 
 function LoginContent() {
   const [authTab, setAuthTab] = useState<'login' | 'signup'>('login');
@@ -48,6 +101,7 @@ function LoginContent() {
   const [smsLoading, setSmsLoading] = useState(false);
   const [smsCountdown, setSmsCountdown] = useState(0);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const smsCountdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // New UX features states
   const [saveCredentials, setSaveCredentials] = useState(false);
@@ -298,15 +352,20 @@ function LoginContent() {
         setSmsCountdown(60);
         
         // Countdown timer
+        if (smsCountdownTimerRef.current) {
+          clearInterval(smsCountdownTimerRef.current);
+        }
         const timer = setInterval(() => {
           setSmsCountdown(prev => {
             if (prev <= 1) {
               clearInterval(timer);
+              smsCountdownTimerRef.current = null;
               return 0;
             }
             return prev - 1;
           });
         }, 1000);
+        smsCountdownTimerRef.current = timer;
         
         toast.success('Código SMS enviado!', `Verifique seu telefone ${data.phone}`);
       } else {
@@ -342,6 +401,10 @@ function LoginContent() {
       if (data.success) {
         setPhoneVerified(true);
         setSmsStep('verified');
+        if (smsCountdownTimerRef.current) {
+          clearInterval(smsCountdownTimerRef.current);
+          smsCountdownTimerRef.current = null;
+        }
         toast.success('Telefone verificado!', 'Número móvel confirmado com sucesso.');
       } else {
         setError(data.error || 'Código inválido. Tente novamente.');
@@ -355,6 +418,10 @@ function LoginContent() {
   }, [phone, smsCode, toast]);
 
   const resetSmsValidation = useCallback(() => {
+    if (smsCountdownTimerRef.current) {
+      clearInterval(smsCountdownTimerRef.current);
+      smsCountdownTimerRef.current = null;
+    }
     setSmsStep('phone');
     setSmsCode('');
     setSmsCodeSent(false);
@@ -368,11 +435,86 @@ function LoginContent() {
     setTimeout(() => phoneInputRef.current?.focus(), 0);
   }, [resetSmsValidation]);
 
+  const handleUserLoginResult = useCallback(async (result: Awaited<ReturnType<typeof login>>) => {
+    if (result.success && result.user) {
+      try {
+        const userData: any = result.user;
+        const expiresAt = userData.planExpiresAt || userData.plan_expires_at || null;
+        const statusField = typeof userData.planStatus !== 'undefined' ? userData.planStatus : userData.plan_status;
+        const expiredByDate = expiresAt ? new Date(expiresAt).getTime() <= Date.now() : false;
+        const isExpired = statusField === false || expiredByDate;
+        if (isExpired) {
+          setEmailPlanExpiredAt(expiresAt);
+          setError('plan_expired');
+          try { await logout(); } catch {}
+          setIsLoading(false);
+          return;
+        }
+      } catch {}
+      saveCredentialsToStorage(email, undefined);
+      setWelcomeUser(result.user.name || result.user.email);
+      setIsAgent(false);
+      setShowWelcome(true);
+      setCountdown(7);
+      const countdownInterval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            checkUserDashboardReady(result.user?.role || 'user');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (result.message?.includes('suspenso')) {
+        setError('suspended');
+      } else if (result.message?.includes('inativa')) {
+        setError('⚠️ Conta Inativa\n\nSua conta está inativa.\nEntre em contato com o suporte para mais informações.');
+      } else {
+        setError(result.message || 'Email ou senha inválidos');
+      }
+      setIsLoading(false);
+    }
+  }, [checkUserDashboardReady, email, logout, saveCredentialsToStorage]);
+
   // Computed value for signup button state
   const isSignupButtonDisabled = useMemo(() => {
     if (authTab !== 'signup') return false;
     return isLoading || !termsAccepted || !phoneVerified;
   }, [authTab, isLoading, termsAccepted, phoneVerified]);
+
+  const getReadableSignupError = useCallback((message?: string | null) => {
+    if (!message) return 'Não foi possível criar a conta';
+    const sanitized = message.toLowerCase();
+    if (sanitized.includes('cpf') || sanitized.includes('cnpj')) {
+      return 'Este CPF/CNPJ já está cadastrado.';
+    }
+    if (sanitized.includes('e-mail') || sanitized.includes('email')) {
+      return 'Este e-mail já está cadastrado.';
+    }
+    if (sanitized.includes('senha') && sanitized.includes('curta')) {
+      return 'A senha informada é muito curta.';
+    }
+    return message;
+  }, []);
+
+  const handleSignupError = useCallback((message?: string | null) => {
+    const readable = getReadableSignupError(message);
+    if (readable.toLowerCase().includes('cpf') || readable.toLowerCase().includes('cnpj')) {
+      setCpfCnpjError('Este CPF/CNPJ já está cadastrado.');
+      setError('');
+      setTimeout(() => cpfInputRef.current?.focus(), 0);
+      return;
+    }
+    if (readable.toLowerCase().includes('e-mail') || readable.toLowerCase().includes('email')) {
+      setEmailError('Este e-mail já está cadastrado.');
+      setError('');
+      setTimeout(() => emailInputRef.current?.focus(), 0);
+      return;
+    }
+    setError(readable || 'Não foi possível criar a conta');
+  }, [getReadableSignupError]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,59 +584,14 @@ function LoginContent() {
           }
         } else {
           // Regular user authentication
-          if (!simpleEmailValid(email)) {
+          if (!isValidEmail(email)) {
             setError('Por favor, insira um e-mail válido (ex: usuario@dominio.com).');
             setIsLoading(false);
             return;
           }
 
           const result = await login(email, password);
-          if (result.success && result.user) {
-            // Plano: bloquear login quando plano expirado/inativo
-            try {
-              const u: any = result.user as any;
-              const expiresAt = u.planExpiresAt || u.plan_expires_at || null;
-              const statusField = (typeof u.planStatus !== 'undefined') ? u.planStatus : u.plan_status;
-              const expiredByDate = expiresAt ? (new Date(expiresAt).getTime() <= Date.now()) : false;
-              const isExpired = (statusField === false) || expiredByDate;
-              if (isExpired) {
-                setEmailPlanExpiredAt(expiresAt);
-                setError('plan_expired');
-                try { await logout(); } catch {}
-                setIsLoading(false);
-                return;
-              }
-            } catch {}
-            // Save credentials if enabled
-            saveCredentialsToStorage(email, undefined);
-            
-            // Mostrar efeito de boas-vindas
-            setWelcomeUser(result.user.name || result.user.email);
-            setIsAgent(false);
-            setShowWelcome(true);
-            setCountdown(7);
-            
-            // Contador regressivo
-            const countdownInterval = setInterval(() => {
-              setCountdown((prev) => {
-                if (prev <= 1) {
-                  clearInterval(countdownInterval);
-                  // Iniciar verificação imediatamente mantendo overlay visível
-                  checkUserDashboardReady(result.user?.role || 'user');
-                  return 0;
-                }
-                return prev - 1;
-              });
-            }, 1000);
-          } else {
-            if (result.message?.includes('suspenso')) {
-              setError('suspended');
-            } else if (result.message?.includes('inativa')) {
-              setError('⚠️ Conta Inativa\n\nSua conta está inativa.\nEntre em contato com o suporte para mais informações.');
-            } else {
-              setError(result.message || 'Email ou senha inválidos');
-            }
-          }
+          await handleUserLoginResult(result);
         }
       } else {
         // signup validation
@@ -503,7 +600,7 @@ function LoginContent() {
           setIsLoading(false);
           return;
         }
-        if (!simpleEmailValid(email)) {
+        if (!isValidEmail(email)) {
           setError('Informe um e-mail válido para cadastro.');
           setIsLoading(false);
           return;
@@ -523,6 +620,14 @@ function LoginContent() {
           setIsLoading(false);
           return;
         }
+        const cpfDigits = cpfCnpj.replace(/\D/g, '');
+        if (cpfDigits && !isValidCpfCnpj(cpfDigits)) {
+          setError('Informe um CPF ou CNPJ válido.');
+          setIsLoading(false);
+          setCpfCnpjError('Documento inválido.');
+          setTimeout(() => cpfInputRef.current?.focus(), 0);
+          return;
+        }
         if (!termsAccepted) {
           setError('Você precisa aceitar os Termos de Serviço para continuar.');
           setIsLoading(false);
@@ -540,21 +645,7 @@ function LoginContent() {
           if (result.user.role === 'reseller') router.push('/reseller/dashboard');
           else router.push('/dashboard');
         } else {
-          const msg = (result.message || '').toLowerCase();
-          // Detectar conflitos específicos
-          if (msg.includes('cpf') || msg.includes('cnpj')) {
-            setCpfCnpjError('Este CPF/CNPJ já está cadastrado.');
-            setError('');
-            // Focar no campo CPF/CNPJ
-            setTimeout(() => cpfInputRef.current?.focus(), 0);
-          } else if (msg.includes('e-mail') || msg.includes('email')) {
-            setEmailError('Este e-mail já está cadastrado.');
-            setError('');
-            // Focar no campo e-mail
-            setTimeout(() => emailInputRef.current?.focus(), 0);
-          } else {
-            setError(result.message || 'Não foi possível criar a conta');
-          }
+          handleSignupError(result.message);
         }
       }
     } catch (err) {
@@ -562,7 +653,7 @@ function LoginContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [authTab, loginMode, agentId, password, email, name, phone, cpfCnpj, referral, termsAccepted, confirmPassword, simpleEmailValid, login, register, router, toast]);
+  }, [authTab, loginMode, agentId, password, email, name, phone, cpfCnpj, referral, termsAccepted, confirmPassword, simpleEmailValid, login, register, router, toast, handleSignupError]);
 
   const promoItems = useMemo(() => [
     { text: 'Troncos SIP ilimitados. Escale suas operações sem limites.', img: '/img/login-illustrations/conta-sip-ilimitada.svg' },
@@ -584,6 +675,15 @@ function LoginContent() {
     }, 12000);
     return () => clearInterval(id);
   }, [promoItems.length, uiReady]);
+
+  useEffect(() => {
+    return () => {
+      if (smsCountdownTimerRef.current) {
+        clearInterval(smsCountdownTimerRef.current);
+        smsCountdownTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <>

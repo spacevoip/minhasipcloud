@@ -5,7 +5,6 @@ import './globals.css';
 import { ToastProvider } from '@/components/ui/toast';
 import { AuthHydration } from '@/components/auth/AuthHydration';
 import MatomoTracker from '@/components/analytics/MatomoTracker';
-import { ApiUrlDebug } from '@/components/ApiUrlDebug';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -50,7 +49,6 @@ export default function RootLayout({
           {/* Track SPA navigations */}
           <MatomoTracker />
         </ToastProvider>
-        <ApiUrlDebug />
       </body>
     </html>
   );

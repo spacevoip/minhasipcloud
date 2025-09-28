@@ -235,12 +235,12 @@ export default function ConfigPage() {
                   setUserPlan(planData);
                 }
               } catch (error) {
-                console.error('Erro ao carregar plano do usuário:', error);
+                // Error loading user plan
               }
             }
           }
         } catch (error) {
-          console.error('Erro ao carregar dados do usuário:', error);
+          // Error loading user data
           toast.error('Erro ao carregar dados do perfil');
         } finally {
           setLoading(false);
@@ -403,19 +403,17 @@ export default function ConfigPage() {
         throw new Error('Token de autenticação não encontrado. Faça login novamente.');
       }
       
-      console.log('🔐 Token encontrado:', token.substring(0, 20) + '...');
-      console.log('🔐 Token completo (primeiros 100 chars):', token.substring(0, 100));
-      console.log('🆔 User ID:', user?.id);
+      // Token found and user ID verified
       
       // Tentar decodificar o token para ver sua estrutura
       try {
         const tokenParts = token.split('.');
         if (tokenParts.length === 3) {
           const payload = JSON.parse(atob(tokenParts[1]));
-          console.log('🔍 Payload do token:', payload);
+          // Token payload decoded
         }
       } catch (e) {
-        console.log('❌ Erro ao decodificar token:', e);
+        // Error decoding token
       }
       
       // Chamar API real para alterar senha
@@ -430,18 +428,17 @@ export default function ConfigPage() {
         })
       });
       
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      // API response received
       
       const result = await response.json();
-      console.log('📡 Response body:', result);
+      // Response body processed
       
       if (!response.ok) {
-        console.error('❌ API Error:', result);
+        // API error occurred
         throw new Error(result.error || result.message || 'Erro ao alterar senha');
       }
       
-      console.log('✅ Senha alterada com sucesso:', result);
+      // Password changed successfully
       
       // Limpar campos
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -455,13 +452,13 @@ export default function ConfigPage() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         
-        console.log('🔐 Logout automático realizado por segurança após alteração de senha');
+        // Automatic logout for security after password change
         
         // Redirecionar para página de login
         window.location.href = '/login';
       }, 2000);
     } catch (error) {
-      console.error('❌ Erro ao alterar senha:', error);
+      // Error changing password
       
       // Tratar erros específicos da API
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

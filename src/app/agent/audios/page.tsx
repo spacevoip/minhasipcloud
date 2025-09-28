@@ -70,7 +70,7 @@ export default function AgentAudiosPage() {
         setAgentData(result.data);
       }
     } catch (error) {
-      console.error('Error loading agent data:', error);
+      // Error loading agent data
       showToast('Erro ao carregar dados do agente', 'error');
     }
   };
@@ -104,7 +104,7 @@ export default function AgentAudiosPage() {
         showToast('Erro ao carregar áudios', 'error');
       }
     } catch (error) {
-      console.error('Error loading audio files:', error);
+      // Error loading audio files
       showToast('Erro ao carregar áudios', 'error');
     } finally {
       setLoading(false);
@@ -163,7 +163,7 @@ export default function AgentAudiosPage() {
         showToast('Erro ao enviar áudio', 'error');
       }
     } catch (error) {
-      console.error('Error uploading audio:', error);
+      // Error uploading audio
       showToast('Erro ao enviar áudio', 'error');
     } finally {
       setUploading(false);
@@ -207,7 +207,7 @@ export default function AgentAudiosPage() {
         };
 
         audio.onerror = (e) => {
-          console.error('Audio error:', e);
+          // Audio error
           setPlayingId(null);
           setCurrentAudio(null);
           showToast('Erro ao carregar áudio', 'error');
@@ -217,7 +217,7 @@ export default function AgentAudiosPage() {
         setPlayingId(audioFile.id);
         setCurrentAudio(audio);
       } catch (error) {
-        console.error('Error playing audio:', error);
+        // Error playing audio
         showToast('Erro ao reproduzir áudio', 'error');
       }
     }
@@ -258,7 +258,7 @@ export default function AgentAudiosPage() {
         showToast('Erro ao excluir áudio', 'error');
       }
     } catch (error) {
-      console.error('Error deleting audio:', error);
+      // Error deleting audio
       showToast('Erro ao excluir áudio', 'error');
     } finally {
       setDeleteConfirm(null);

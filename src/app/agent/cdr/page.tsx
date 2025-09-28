@@ -50,11 +50,11 @@ export default function AgentCDR() {
     try {
       const token = localStorage.getItem('agent_token');
       if (!token) {
-        console.warn('⚠️ [CDR] Token não encontrado');
+        // No token found
         return;
       }
 
-      console.log('📞 [CDR] Carregando dados CDR para ramal:', ramal, 'página:', page);
+      // Loading CDR data
       
       // Build query params
       let startDate = '';
@@ -105,24 +105,14 @@ export default function AgentCDR() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ [CDR] Dados CDR carregados:', data);
-        console.log('📊 [CDR] Estrutura dos dados:', {
-          success: data.success,
-          hasData: !!data.data,
-          callsCount: data.data?.calls?.length || 0,
-          statsKeys: data.data?.stats ? Object.keys(data.data.stats) : [],
-          paginationKeys: data.data?.pagination ? Object.keys(data.data.pagination) : []
-        });
+        // CDR data loaded successfully
         
         if (data.success && data.data) {
           const calls = data.data.calls || [];
-          console.log('📞 [CDR] Chamadas encontradas:', calls.length);
-          if (calls.length > 0) {
-            console.log('📞 [CDR] Primeira chamada:', calls[0]);
-          }
+          // Calls found
           
           setCdrRecords(calls);
-          console.log('📊 [CDR] Estado atualizado - cdrRecords:', calls.length);
+          // State updated
           setStats(data.data.stats || { 
             total_calls: 0, 
             today_calls: 0, 
@@ -132,26 +122,24 @@ export default function AgentCDR() {
           });
           setPagination(data.data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
         } else {
-          console.log('❌ [CDR] Dados inválidos:', { success: data.success, hasData: !!data.data });
+          // Invalid data received
         }
       } else {
-        console.error('❌ [CDR] Erro na API:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('❌ [CDR] Detalhes do erro:', errorText);
+        // API error
       }
     } catch (error) {
-      console.error('Error loading CDR data:', error);
+      // Error loading CDR data
     }
   };
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log('🔄 [CDR] Carregando dados do agente...');
+        // Loading agent data
         
         const result = await agentAuthService.getCurrentAgent();
         if (result.success && result.data) {
-          console.log('✅ [CDR] Dados do agente carregados:', result.data);
+          // Agent data loaded
           setAgentData(result.data);
           
           if (result.data.ramal) {
@@ -160,13 +148,13 @@ export default function AgentCDR() {
         } else {
           const storedData = agentAuthService.getStoredAgentData();
           if (storedData && storedData.ramal) {
-            console.log('💾 [CDR] Usando dados armazenados:', storedData);
+            // Using stored data
             setAgentData(storedData);
             await loadCDRData(storedData.ramal);
           }
         }
       } catch (error) {
-        console.error('Error loading data:', error);
+        // Error loading data
       } finally {
         setLoading(false);
       }
@@ -530,11 +518,7 @@ export default function AgentCDR() {
               </thead>
               <tbody>
                 {(() => {
-                  console.log('🎨 [CDR] Renderizando tabela:', { 
-                    cdrRecords: cdrRecords.length, 
-                    filteredRecords: filteredRecords.length,
-                    loading 
-                  });
+                  // Rendering table
                   return null;
                 })()}
                 {filteredRecords.map((record) => (

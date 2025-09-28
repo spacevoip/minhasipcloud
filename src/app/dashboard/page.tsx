@@ -17,13 +17,10 @@ import {
 } from 'lucide-react';
 import { DashboardStats, CallsByHour, Plan } from '@/types';
 import { useActiveCallsOptimized } from '@/hooks/useActiveCallsOptimized';
-import { dashboardAPI } from '@/services/api';
 import { useAuthStore } from '@/store/auth';
 import { plansService } from '@/services/plansService';
 import { agentsService } from '@/services/agentsService';
-import { usersServiceWithFallback } from '@/services/usersService';
 import { userService } from '@/lib/userService';
- 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 import { getCdr } from '@/services/cdrService';
 import { extensionStatusService, ExtensionStatusData } from '@/services/extensionStatusService';
@@ -96,20 +93,22 @@ export default function DashboardPage() {
     if (!user?.id) return;
     
     try {
-      // Quick check for data existence
-      const quickCheck = await getCdr({ page: 1, limit: 1, order: 'desc' });
-      if (quickCheck.total === 0) return;
-
+      setLoadingTotalCalls(true);
       const now = new Date();
       const start = new Date(now);
       start.setHours(0, 0, 0, 0);
       const startDate = start.toISOString();
       const endDate = now.toISOString();
       
-      // Limit to 500 records max to avoid performance issues
-      const { records } = await getCdr({ page: 1, limit: 500, startDate, endDate, order: 'asc' });
-      
-      // Build 24h buckets efficiently
+      const { records, total } = await getCdr({ page: 1, limit: 500, startDate, endDate, order: 'asc' });
+      if (!records || records.length === 0) {
+        setCallsByHour(prev => prev.map(item => ({ ...item, calls: 0, answered: 0, missed: 0, total: 0 })));
+        setTopAgents([]);
+        setStats(prev => ({ ...prev, totalCalls: Number(total) || 0 }));
+        setLoadingTotalCalls(false);
+        return;
+      }
+
       const buckets: Record<string, { calls: number; answered: number; missed: number }> = {};
       for (let h = 0; h < 24; h++) {
         const label = `${String(h).padStart(2, '0')}h`;
@@ -118,7 +117,6 @@ export default function DashboardPage() {
       
       const agentMap: Record<string, { name: string; extension?: string; answered: number; total: number; missed: number }> = {};
       
-      // Single loop for both buckets and agents
       for (const r of records) {
         const dt = new Date(r.startTime);
         const label = `${String(dt.getHours()).padStart(2, '0')}h`;
@@ -129,7 +127,6 @@ export default function DashboardPage() {
           else if (r.status === 'no_answer' || r.status === 'failed' || r.status === 'busy') b.missed += 1;
         }
         
-        // Agent stats
         const keyName: string = (r.agentName && String(r.agentName).trim()) || (r.extension && String(r.extension)) || 'Desconhecido';
         if (!agentMap[keyName]) agentMap[keyName] = { name: keyName, extension: r.extension, answered: 0, total: 0, missed: 0 };
         const a = agentMap[keyName];
@@ -151,17 +148,24 @@ export default function DashboardPage() {
         .sort((a, b) => (b.answered - a.answered) || (b.total - a.total))
         .slice(0, 3);
       setTopAgents(ranking);
+      setStats(prev => ({ ...prev, totalCalls: Number(total) || records.length }));
     } catch (e) {
       // Keep previous data on error
+    } finally {
+      setLoadingTotalCalls(false);
     }
   }, [user?.id]);
 
   useEffect(() => {
     loadCallsByHourReal();
-    // Reduced frequency: every 2 minutes instead of 1 minute
     const id = setInterval(loadCallsByHourReal, 120000);
     return () => clearInterval(id);
   }, [loadCallsByHourReal]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoadingTotalCalls(true);
+  }, [user?.id]);
 
   // Carregar dados reais do usuário (com fallback para obter planId via userService)
   useEffect(() => {
@@ -220,24 +224,6 @@ export default function DashboardPage() {
 
     loadUserData();
   }, [user?.id, user?.planId]);
-
-  // Load total calls - optimized
-  const loadTotalCalls = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      setLoadingTotalCalls(true);
-      const { total } = await getCdr({ page: 1, limit: 1, order: 'desc' });
-      setStats(prev => ({ ...prev, totalCalls: Number(total) || 0 }));
-    } catch (e) {
-      // Keep previous value on error
-    } finally {
-      setLoadingTotalCalls(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    loadTotalCalls();
-  }, [loadTotalCalls]);
 
   // Load agents - optimized
   const loadRealAgents = useCallback(async () => {
@@ -763,60 +749,6 @@ export default function DashboardPage() {
               }}>
                 {loadingCredits ? 'Carregando...' : 'Saldo atual da conta'}
               </div>
-            </div>
-          </div>
-
-          {/* Period Filters */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '1rem',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            backdropFilter: 'blur(20px)'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              flexWrap: 'wrap'
-            }}>
-              <span style={{
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                color: '#64748b'
-              }}>
-                Período:
-              </span>
-              {['Hoje', '7 dias', '30 dias', '90 dias'].map((period) => (
-                <button
-                  key={period}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.5rem',
-                    border: 'none',
-                    background: period === 'Hoje' ? '#3b82f6' : 'rgba(59, 130, 246, 0.1)',
-                    color: period === 'Hoje' ? 'white' : '#3b82f6',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (period !== 'Hoje') {
-                      e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (period !== 'Hoje') {
-                      e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
-                    }
-                  }}
-                >
-                  {period}
-                </button>
-              ))}
             </div>
           </div>
 

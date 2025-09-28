@@ -105,7 +105,7 @@ export default function AgentDashboard() {
 
   // Filtrar chamadas baseado na busca e filtros (como /active-calls) - OTIMIZADO com useMemo
   const filteredCalls = useMemo(() => {
-    console.log(`[SECURITY] Filtrando ${localCalls.length} chamadas para ramal ${agentData?.ramal}`);
+    // Filtering calls for security
     
     return localCalls.filter(call => {
       // Filtro de busca
@@ -134,7 +134,7 @@ export default function AgentDashboard() {
         
         // Filtro rigoroso: deve ser exatamente o ramal do agente
         if (callExtension !== agentExtension) {
-          console.log(`[SECURITY] Chamada filtrada: ${callExtension} !== ${agentExtension}`);
+          // Call filtered for security
           return false;
         }
         
@@ -146,10 +146,7 @@ export default function AgentDashboard() {
     }).filter((call, index, array) => {
       // Log final do resultado da filtragem
       if (index === array.length - 1) {
-        console.log(`[SECURITY] ✅ Resultado: ${array.length} chamadas aprovadas para ramal ${agentData?.ramal}`);
-        array.forEach((c, i) => {
-          console.log(`[SECURITY] Chamada ${i + 1}: extension=${c.extension}, caller=${c.callerid}, destination=${c.destination}`);
-        });
+        // Security filtering completed
       }
       return true;
     });
@@ -284,7 +281,7 @@ export default function AgentDashboard() {
           }
         }
       } catch (err) {
-        console.warn('[WorkTimer] Falha ao sincronizar sessão ativa:', err);
+        // Work timer sync failed
       } finally {
         setWorkLoading(false);
       }
@@ -331,7 +328,7 @@ export default function AgentDashboard() {
       if (resp.status === 204) return null;
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '');
-        console.warn('⚠️ [AutoDialer] /next falhou:', resp.status, txt);
+        // AutoDialer next contact failed
         return null;
       }
       const data = await resp.json();
@@ -345,7 +342,7 @@ export default function AgentDashboard() {
       } as NormalizedContact;
       return normalized;
     } catch (e) {
-      console.warn('⚠️ [AutoDialer] Erro ao obter próximo contato:', e);
+      // Error getting next contact
       return null;
     }
   };
@@ -404,7 +401,7 @@ export default function AgentDashboard() {
         } catch {}
       }
     } catch (e) {
-      console.warn('⚠️ [AutoDialer] Erro ao obter lote do discador:', e);
+      // Error getting contact batch
     }
     return results;
   };
@@ -448,7 +445,7 @@ export default function AgentDashboard() {
         showToast('Jornada iniciada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] start error:', err);
+      // Work timer start error
       showToast('Falha ao iniciar jornada', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -470,7 +467,7 @@ export default function AgentDashboard() {
         showToast('Pausa iniciada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] pause error:', err);
+      // Work timer pause error
       showToast('Falha ao iniciar pausa', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -499,7 +496,7 @@ export default function AgentDashboard() {
         showToast('Pausa encerrada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] resume error:', err);
+      // Work timer resume error
       showToast('Falha ao encerrar pausa', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -519,7 +516,7 @@ export default function AgentDashboard() {
         showToast('Jornada finalizada', 'success');
       }
     } catch (err) {
-      console.error('[WorkTimer] stop error:', err);
+      // Work timer stop error
       showToast('Falha ao finalizar jornada', 'error');
     } finally {
       setWorkActionLoading(false);
@@ -748,11 +745,11 @@ export default function AgentDashboard() {
   // Função para iniciar captura DTMF
   const startDTMFCapture = async (callId: string) => {
     if (!callId) {
-      console.warn('[DTMF] ID da chamada não fornecido');
+      // No call ID provided for DTMF
       return;
     }
 
-    console.log(`[DTMF] Iniciando captura para chamada: ${callId}`);
+    // Starting DTMF capture
     
     // Limpar subscription anterior se existir
     if (dtmfSubscription) {
@@ -762,9 +759,9 @@ export default function AgentDashboard() {
     // ✅ LIMPAR DÍGITOS EXISTENTES ANTES DE INICIAR
     try {
       await clearCapturedDigits(callId);
-      console.log(`[DTMF] Dígitos anteriores limpos para chamada: ${callId}`);
+      // Previous digits cleared
     } catch (error) {
-      console.error('[DTMF] Erro ao limpar dígitos anteriores:', error);
+      // Error clearing previous DTMF digits
     }
 
     // Buscar dígitos existentes (deve estar vazio após limpeza)
@@ -779,7 +776,7 @@ export default function AgentDashboard() {
         }
       }
     } catch (error) {
-      console.error('[DTMF] Erro ao buscar dígitos existentes:', error);
+      // Error fetching existing DTMF digits
       setCapturedDigits('');
     }
 
@@ -795,7 +792,7 @@ export default function AgentDashboard() {
           filter: `id_call=eq.${callId}`
         },
         (payload) => {
-          console.log('[DTMF] Realtime update:', payload);
+          // DTMF realtime update
           if (payload.new && typeof payload.new === 'object') {
             const row: any = payload.new as any;
             const digito: string = typeof row?.digito === 'string' ? row.digito : '';
@@ -812,7 +809,7 @@ export default function AgentDashboard() {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`[DTMF] Inscrito para chamada: ${callId}`);
+          // DTMF subscription active
         }
       });
 
@@ -822,7 +819,7 @@ export default function AgentDashboard() {
 
   // Função para parar captura DTMF
   const stopDTMFCapture = () => {
-    console.log('[DTMF] Parando captura');
+    // Stopping DTMF capture
     
     if (dtmfSubscription) {
       dtmfSubscription.unsubscribe();
@@ -855,7 +852,7 @@ export default function AgentDashboard() {
         setTimeout(() => setToast(null), 2000);
       }
     } catch (error) {
-      console.error('[DTMF] Erro ao limpar dígitos:', error);
+      // Error clearing DTMF digits
       setToast({
         message: 'Erro ao limpar dígitos',
         type: 'error'
@@ -942,7 +939,7 @@ export default function AgentDashboard() {
       clearInterval(autoReplenishTimerRef.current);
       autoReplenishTimerRef.current = null;
     }
-    console.log('🛑 [AutoDialer] Parado');
+    // AutoDialer stopped
   };
 
   // (stopCallTimer defined later near timers section to avoid duplication)
@@ -992,7 +989,7 @@ export default function AgentDashboard() {
           autoDialerContactsRef.current = [...autoDialerContactsRef.current, ...toMove];
           const newRemaining = autoDialerContactsRef.current.slice(idx + 1);
           setAutoDialerQueueSafe(newRemaining);
-          console.log(`🧃 [AutoDialer] +${toMove.length} movidos da memória para ativa. Ativa agora=${newRemaining.length}, Memória=${autoMemoryBufferRef.current.length}`);
+          // Contacts moved from memory to active queue
         }
       }
 
@@ -1014,13 +1011,13 @@ export default function AgentDashboard() {
             const freshMem = addMem.filter(c => !seen.has(c.id));
             if (freshMem.length > 0) {
               autoMemoryBufferRef.current = [...autoMemoryBufferRef.current, ...freshMem];
-              console.log(`🧠 [AutoDialer] Memória reabastecida: +${freshMem.length}, totalMem=${autoMemoryBufferRef.current.length}`);
+              // Memory buffer replenished
             }
           }
         }
       }
     } catch (e) {
-      console.warn('⚠️ [AutoDialer] Falha ao reabastecer fila:', e);
+      // AutoDialer queue replenish failed
     }
   };
 
@@ -1052,7 +1049,7 @@ export default function AgentDashboard() {
     setAutoDialerCurrentContact(active[0] || null);
     autoMemoryBufferRef.current = mem;
     setAutoDialerStats(prev => ({ ...prev, total: active.length, remaining: Math.max(0, active.length - 1) }));
-    console.log(`🚀 [AutoDialer] Seed 2-níveis: ativa=${active.length}, memória=${mem.length}`);
+    // AutoDialer initialized with 2-level queue
     return { activeCount: active.length, memoryCount: mem.length };
   };
 
@@ -1150,14 +1147,14 @@ export default function AgentDashboard() {
         }
         // Contabilizar falha com causa
         const info = getWebRTCFailureInfo(ev);
-        console.warn('📵 [AutoDialer] Falha na chamada:', info, ev);
+        // AutoDialer call failed
         setAutoDialerStats(prev => ({ ...prev, failed: prev.failed + 1 }));
         // Persistir e continuar para o próximo contato
         void finalizeAndLogCall('failed', ev);
         continueNext();
       });
     } catch (e) {
-      console.error('❌ [AutoDialer] Erro ao iniciar chamada automática:', e);
+      // Error starting automatic call
       // Contabilizar falha imediata
       setAutoDialerStats(prev => ({ ...prev, failed: prev.failed + 1 }));
       // Persistir falha sem tocar
@@ -1302,12 +1299,12 @@ export default function AgentDashboard() {
       callLogSavedRef.current = true; // marcar antes para evitar duplicatas em eventos em cascata
       const resp = await callLogsService.logFinalCall(payload);
       if (!resp.success) {
-        console.warn('⚠️ Falha ao salvar call log:', resp.message || resp.error);
+        // Call log save failed
       } else {
-        console.log('📝 Call log salvo:', resp.data);
+        // Call log saved
       }
     } catch (e) {
-      console.error('❌ Erro ao salvar call log:', e);
+      // Call log save error
     }
   };
 
@@ -1405,7 +1402,7 @@ export default function AgentDashboard() {
       setContactSheetData(base);
       setContactSheetOpen(true);
     } catch (e) {
-      console.error('Erro ao abrir ficha do contato:', e);
+      // Error opening contact sheet
       showToast('Não foi possível abrir a ficha do contato', 'error');
     }
   };
@@ -1460,7 +1457,7 @@ export default function AgentDashboard() {
               }
             }
           } catch (e) {
-            console.warn('⚠️ Falha ao resolver contato no backend:', e);
+            // Failed to resolve contact in backend
           }
         }
       }
@@ -1471,7 +1468,7 @@ export default function AgentDashboard() {
       }
       openContactSheet(candidate);
     } catch (e) {
-      console.error('Erro ao abrir ficha do número atual:', e);
+      // Error opening current number sheet
       showToast('Erro ao abrir ficha', 'error');
     }
   };
@@ -1481,7 +1478,7 @@ export default function AgentDashboard() {
     try {
       const token = localStorage.getItem('agent_token');
       if (!token || !campaignId) {
-        console.warn('⚠️ [AutoDialer] Sem token ou campaignId para incrementar discados');
+        // No token or campaign ID for dial increment
         return;
       }
       const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -1495,12 +1492,12 @@ export default function AgentDashboard() {
       });
       if (!res.ok) {
         const txt = await res.text();
-        console.error('❌ [AutoDialer] Falha ao incrementar discados:', res.status, txt);
+        // Failed to increment dial count
       } else {
-        console.log('✅ [AutoDialer] Discados incrementado para campanha', campaignId);
+        // Campaign dial count incremented
       }
     } catch (err) {
-      console.error('❌ [AutoDialer] Erro ao incrementar discados:', err);
+      // Error incrementing dial count
     }
   };
 
@@ -1510,15 +1507,15 @@ export default function AgentDashboard() {
     let idx = autoDialerIndexRef.current + 1;
     const running = autoDialerRunningRef.current;
     const paused = autoDialerPausedRef.current;
-    console.log(`➡️ [AutoDialer] advanceByIndex idx=${idx}/${total} running=${running} paused=${paused}`);
+    // Advancing AutoDialer index
     if (!running || paused || awaitingClassificationRef.current) {
       if (awaitingClassificationRef.current) {
-        console.log('⏸️ [AutoDialer] Aguardando avaliação, não avançando.');
+        // Waiting for classification, not advancing
       }
       return;
     }
     if (idx >= total) {
-      console.log('🏁 [AutoDialer] Fim da campanha pelo índice');
+      // Campaign finished by index
       stopAutoDialer();
       return;
     }
@@ -1586,7 +1583,7 @@ export default function AgentDashboard() {
         const data = await response.json();
         if (data.success && data.data?.senha) {
           webrtcPassword = data.data.senha;
-          console.log('🔐 Senha do ramal obtida do banco de dados');
+          // Extension password obtained
         } else {
           showToast('Senha do ramal não encontrada no banco de dados', 'error');
           setWebrtcConnecting(false);
@@ -1598,7 +1595,7 @@ export default function AgentDashboard() {
         return;
       }
     } catch (error) {
-      console.error('❌ Erro ao buscar senha do ramal:', error);
+      // Error fetching extension password
       showToast('Erro ao buscar senha do ramal', 'error');
       setWebrtcConnecting(false);
       return;
@@ -1608,12 +1605,7 @@ export default function AgentDashboard() {
       // Aguardar JsSIP carregar
       const JsSIP = await waitForJsSIP();
       
-      console.log('🔐 Configurações WebRTC:', {
-        ramal: agentData.ramal,
-        uri: `sip:${agentData.ramal}@minhasip.cloud`,
-        websocket: process.env.NEXT_PUBLIC_WSS_DOMAIN || "wss://minhasip.cloud:8089/ws",
-        hasPassword: !!webrtcPassword
-      });
+      // WebRTC configuration set
       
       const socket = new JsSIP.WebSocketInterface(process.env.NEXT_PUBLIC_WSS_DOMAIN || "wss://minhasip.cloud:8089/ws");
       const ua = new JsSIP.UA({
@@ -1634,26 +1626,26 @@ export default function AgentDashboard() {
       });
 
       ua.on('connected', () => {
-        console.log('✅ WebRTC conectado ao WebSocket');
+        // WebRTC connected to WebSocket
         setWebrtcConnected(true);
       });
 
       ua.on('registered', () => {
-        console.log('✅ WebRTC registrado');
+        // WebRTC registered
         setWebrtcRegistered(true);
         setWebrtcConnecting(false);
         showToast('Conectado com Sucesso!', 'success');
       });
 
       ua.on('registrationFailed', (e: any) => {
-        console.error('❌ Falha no registro WebRTC:', e.cause);
+        // WebRTC registration failed
         setWebrtcRegistered(false);
         setWebrtcConnecting(false);
         showToast('Falha no registro WebRTC: ' + e.cause, 'error');
       });
 
       ua.on('disconnected', () => {
-        console.log('🔴 WebRTC desconectado');
+        // WebRTC disconnected
         setWebrtcConnected(false);
         setWebrtcRegistered(false);
       });
@@ -1662,10 +1654,10 @@ export default function AgentDashboard() {
         const session = e.session;
         setWebrtcSession(session);
         
-        console.log('📞 Nova sessão WebRTC criada');
+        // New WebRTC session created
         
         session.on('progress', () => {
-          console.log('📞 Chamada em progresso');
+          // Call in progress
           setCallStatus('ringing');
           callRangRef.current = true;
           
@@ -1677,17 +1669,17 @@ export default function AgentDashboard() {
               const remoteStream = session.connection?.getRemoteStreams?.()?.[0];
               if (remoteStream) {
                 ringbackAudio.srcObject = remoteStream;
-                ringbackAudio.play().catch(e => console.warn('⚠️ Erro ao reproduzir ringback:', e));
-                console.log('🔔 Som de chamando configurado');
+                ringbackAudio.play().catch(e => {/* Ringback play error */});
+                // Ringback audio configured
               }
             }
           } catch (error) {
-            console.warn('⚠️ Erro ao configurar som de chamando:', error);
+            // Error configuring ringback audio
           }
         });
         
         session.on('confirmed', () => {
-          console.log('✅ Chamada WebRTC estabelecida');
+          // WebRTC call established
           setCallStatus('connected');
           setCallDuration(0);
           callConfirmedRef.current = true;
@@ -1698,10 +1690,10 @@ export default function AgentDashboard() {
             if (ringbackAudio) {
               ringbackAudio.pause();
               ringbackAudio.srcObject = null;
-              console.log('🔇 Som de chamando parado');
+              // Ringback audio stopped
             }
           } catch (error) {
-            console.warn('⚠️ Erro ao parar som de chamando:', error);
+            // Error stopping ringback audio
           }
           
           // Configurar áudio da chamada
@@ -1711,8 +1703,8 @@ export default function AgentDashboard() {
             const remoteAudio = document.getElementById('remoteAudio') as HTMLAudioElement;
             if (remoteAudio && remoteStream) {
               remoteAudio.srcObject = remoteStream;
-              remoteAudio.play().catch(e => console.warn('⚠️ Erro ao reproduzir áudio remoto:', e));
-              console.log('🔊 Áudio remoto configurado');
+              remoteAudio.play().catch(e => {/* Remote audio play error */});
+              // Remote audio configured
             }
             
             // Configurar áudio local (nosso microfone) - opcional para monitoramento
@@ -1721,10 +1713,10 @@ export default function AgentDashboard() {
             if (localAudio && localStream) {
               localAudio.srcObject = localStream;
               // Não reproduzir áudio local para evitar feedback
-              console.log('🎤 Áudio local configurado (mudo)');
+              // Local audio configured (muted)
             }
           } catch (error) {
-            console.error('❌ Erro ao configurar áudio:', error);
+            // Error configuring audio
           }
           
           // Iniciar contador de tempo
@@ -1740,7 +1732,7 @@ export default function AgentDashboard() {
         });
         
         session.on('ended', (e: any) => {
-          console.log('📞 Chamada WebRTC encerrada:', e);
+          // WebRTC call ended
           void finalizeAndLogCall('ended', e);
           
           // Limpar áudio
@@ -1755,9 +1747,9 @@ export default function AgentDashboard() {
               localAudio.srcObject = null;
               localAudio.pause();
             }
-            console.log('🔇 Áudio limpo após encerrar chamada');
+            // Audio cleaned after call end
           } catch (error) {
-            console.warn('⚠️ Erro ao limpar áudio:', error);
+            // Error cleaning audio
           }
           
           // Limpar flag de hangup intencional se existir
@@ -1791,18 +1783,18 @@ export default function AgentDashboard() {
         session.on('failed', (e: any) => {
           // Verificar se é um hangup intencional
           if (session._isIntentionalHangup) {
-            console.log('✅ Chamada encerrada intencionalmente');
+            // Call ended intentionally
             return;
           }
           
           // Verificar se a causa da falha é um hangup normal
           if (e && e.cause === 'Terminated') {
-            console.log('✅ Chamada terminada normalmente');
+            // Call terminated normally
             return;
           }
           
           const info = getWebRTCFailureInfo(e);
-          console.error('❌ Falha na chamada WebRTC:', info, e);
+          // WebRTC call failed
           void finalizeAndLogCall('failed', e);
           setWebrtcSession(null);
           setCallStatus('idle');
@@ -1830,7 +1822,7 @@ export default function AgentDashboard() {
       ua.start();
       
     } catch (error) {
-      console.error('❌ Erro ao conectar WebRTC:', error);
+      // Error connecting WebRTC
       setWebrtcConnecting(false);
       if (error instanceof Error && error.message.includes('JsSIP library failed to load')) {
         showToast('Biblioteca JsSIP não pôde ser carregada. Recarregue a página.', 'error');
@@ -1860,7 +1852,7 @@ export default function AgentDashboard() {
         setWebrtcConnecting(false);
         showToast('Desconectado com Sucesso!', 'success');
       } catch (error) {
-        console.error('❌ Erro ao desconectar WebRTC:', error);
+        // Error disconnecting WebRTC
         setWebrtcConnecting(false);
       }
     }
@@ -1922,7 +1914,7 @@ export default function AgentDashboard() {
       callContactIdRef.current = null;
       
     } catch (error) {
-      console.error('❌ Erro ao fazer chamada WebRTC:', error);
+      // Error making WebRTC call
       showToast('Erro ao fazer chamada', 'error');
       setCallStatus('idle');
     }
@@ -1954,7 +1946,7 @@ export default function AgentDashboard() {
         
         showToast('Chamada encerrada', 'success');
       } catch (error) {
-        console.error('❌ Erro ao encerrar chamada WebRTC:', error);
+        // Error ending WebRTC call
       }
     }
   };
@@ -1971,12 +1963,9 @@ export default function AgentDashboard() {
       if (sender && sender.track) {
         sender.track.enabled = !mute;
       }
-      console.log(`🔁 setAudioMuteState -> mute=${mute}`, {
-        tracks: audioTracks.map(t => ({ id: t.id, enabled: t.enabled })),
-        senderEnabled: sender?.track?.enabled
-      });
+      // Audio mute state set
     } catch (e) {
-      console.warn('⚠️ Falha ao aplicar estado de mute direto no track:', e);
+      // Failed to apply mute state
     }
   };
 
@@ -1997,7 +1986,7 @@ export default function AgentDashboard() {
           showToast('Microfone mutado', 'success');
         }
       } catch (error) {
-        console.error('❌ Erro ao alternar mute:', error);
+        // Error toggling mute
       }
     }
   };
@@ -2109,7 +2098,7 @@ export default function AgentDashboard() {
           networkType
         };
       } catch (error) {
-        console.error('❌ Erro ao obter estatísticas de qualidade:', error);
+        // Error getting quality stats
         throw error;
       }
     }
@@ -2152,10 +2141,10 @@ export default function AgentDashboard() {
         // Log quality issues
         const quality = monitor.getQualityRating(stats);
         if (quality.rating === 'poor') {
-          console.warn('⚠️ [QualityMonitor] Qualidade de chamada ruim detectada:', stats);
+          // Poor call quality detected
         }
       } catch (error) {
-        console.error('❌ [QualityMonitor] Erro no monitoramento:', error);
+        // Quality monitoring error
       }
     }, 2000); // Update every 2 seconds
 
@@ -2325,21 +2314,20 @@ export default function AgentDashboard() {
 
       const token = localStorage.getItem('agent_token');
       if (!token) {
-        console.warn('⚠️ [Dashboard] Token não encontrado para chamadas ativas');
+        // No token found for active calls
         return;
       }
 
       // Get current agent data to use user_id for filtering
       if (!agentData?.user_id) {
-        console.warn('⚠️ [Dashboard] Dados do agente não encontrados para chamadas ativas');
+        // Agent data not found for active calls
         return;
       }
 
-      console.log('📞 [Dashboard] Buscando chamadas ativas para user_id:', agentData.user_id);
-      console.log('📞 [Dashboard] Ramal do agente:', agentData.ramal);
+      // Fetching active calls for agent
       
       const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/active-calls?accountcode=${agentData.user_id}`;
-      console.log('📞 [Dashboard] URL da requisição:', url);
+      // API request URL set
       
       const response = await fetch(url, {
         headers: {
@@ -2348,15 +2336,15 @@ export default function AgentDashboard() {
         }
       });
       
-      console.log('📞 [Dashboard] Status da resposta:', response.status);
+      // API response status received
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📞 [Dashboard] Resposta completa da API:', JSON.stringify(data, null, 2));
+        // API response received
         
         if (data.success) {
           if (data.data?.records && Array.isArray(data.data.records)) {
-            console.log('📞 [Dashboard] Número de registros encontrados:', data.data.records.length);
+            // Records found in API response
             
             // Map ARI data to our format with better error handling
             const mappedCalls = data.data.records
@@ -2366,7 +2354,7 @@ export default function AgentDashboard() {
                 const agentExtension = String(agentData?.ramal || '');
                 
                 if (!agentExtension) {
-                  console.warn('⚠️ [Dashboard] Ramal do agente não encontrado para filtragem');
+                  // Agent extension not found for filtering
                   return false;
                 }
                 
@@ -2375,11 +2363,7 @@ export default function AgentDashboard() {
                                      channelName.includes(`/${agentExtension}-`) ||
                                      channelName === `pjsip/${agentExtension.toLowerCase()}`;
                 
-                console.log('🔍 [Dashboard] Filtrando canal:', {
-                  channelName,
-                  agentExtension,
-                  match: extensionMatch
-                });
+                // Filtering channel for agent extension
                 
                 return extensionMatch;
               })
@@ -2398,17 +2382,17 @@ export default function AgentDashboard() {
                   extension: agentData?.ramal
                 };
                 
-                console.log('📞 [Dashboard] Chamada mapeada (filtrada):', mappedCall);
+                // Call mapped and filtered
                 return mappedCall;
               })
               .filter((call: ActiveCall) => call.id); // Filter out any calls without valid IDs
             
-            console.log('📞 [Dashboard] Total de chamadas válidas:', mappedCalls.length);
+            // Valid calls processed
             setLocalCalls(mappedCalls);
             
             // Limpar managingCall se a chamada gerenciada não existe mais
             if (managingCall && !mappedCalls.find((call: ActiveCall) => call.id === managingCall)) {
-              console.log('🧹 [Dashboard] Limpando chamada gerenciada que não existe mais:', managingCall);
+              // Cleaning up non-existent managed call
               setManagingCall(null);
               setManagingCallSnapshot(null);
               setDtmfCapturing(false);
@@ -2416,17 +2400,17 @@ export default function AgentDashboard() {
               setAudioInjecting(false);
             }
             
-            console.log('✅ [Dashboard] Chamadas ativas atualizadas no estado');
+            // Active calls state updated
             // Atualizar dados pré-carregados para próxima vez
             localStorage.setItem('agent_active_calls_preloaded', JSON.stringify(mappedCalls));
           } else {
-            console.log('📞 [Dashboard] Nenhuma chamada ativa encontrada');
+            // No active calls found
             setLocalCalls([]);
             localStorage.setItem('agent_active_calls_preloaded', JSON.stringify([]));
             
             // Limpar estados quando não há chamadas ativas
             if (managingCall) {
-              console.log('🧹 [Dashboard] Limpando estados - nenhuma chamada ativa');
+              // Cleaning states - no active calls
               setManagingCall(null);
               setManagingCallSnapshot(null);
               setDtmfCapturing(false);
@@ -2435,7 +2419,7 @@ export default function AgentDashboard() {
             }
           }
         } else {
-          console.error('❌ [Dashboard] API retornou success: false:', data.message);
+          // API returned success: false
           // Manter dados pré-carregados se houver erro
           if (!preloadedData) {
             setLocalCalls([]);
@@ -2443,7 +2427,7 @@ export default function AgentDashboard() {
           
           // Limpar estados quando há erro na API
           if (managingCall) {
-            console.log('🧹 [Dashboard] Limpando estados - erro na API');
+            // Cleaning states - API error
             setManagingCall(null);
             setManagingCallSnapshot(null);
             setDtmfCapturing(false);
@@ -2452,16 +2436,16 @@ export default function AgentDashboard() {
           }
         }
       } else {
-        console.error('❌ [Dashboard] Erro na API chamadas ativas:', response.status, response.statusText);
+        // API error for active calls
         const errorText = await response.text();
-        console.error('❌ [Dashboard] Detalhes do erro:', errorText);
+        // Error details logged
         // Manter dados pré-carregados se houver erro
         if (!preloadedData) {
           setLocalCalls([]);
         }
       }
     } catch (error) {
-      console.error('❌ [Dashboard] Erro na função loadActiveCalls:', error);
+      // Error in loadActiveCalls function
       // Manter dados pré-carregados se houver erro
       const preloadedData = localStorage.getItem('agent_active_calls_preloaded');
       if (!preloadedData) {
@@ -2470,7 +2454,7 @@ export default function AgentDashboard() {
       
       // Limpar estados quando há erro na função
       if (managingCall) {
-        console.log('🧹 [Dashboard] Limpando estados - erro na função');
+        // Cleaning states - function error
         setManagingCall(null);
         setManagingCallSnapshot(null);
         setDtmfCapturing(false);
@@ -2516,7 +2500,7 @@ export default function AgentDashboard() {
         showToast(data.message || 'Erro ao atualizar Caller ID', 'error');
       }
     } catch (error) {
-      console.error('Erro ao salvar Caller ID:', error);
+      // Error saving Caller ID
       showToast('Erro de conexão ao salvar Caller ID', 'error');
     } finally {
       setSavingCallerId(false);
@@ -2528,7 +2512,7 @@ export default function AgentDashboard() {
       // Bloquear desligamento de chamadas que não pertencem ao ramal do agente
       const target = filteredCalls.find((c) => c.id === callId && String(c.extension || '').trim() === String(agentData?.ramal || '').trim());
       if (!target) {
-        console.warn('[SECURITY] Hangup bloqueado: chamada não pertence ao ramal do agente', { callId, ramal: agentData?.ramal });
+        // Hangup blocked for security
         showToast('Operação não permitida para este ramal', 'error');
         return;
       }
@@ -2544,7 +2528,7 @@ export default function AgentDashboard() {
 
       const data = await response.json();
       if (data.success) {
-        console.log('✅ [Dashboard] Chamada desligada com sucesso:', data.message);
+        // Call hung up successfully
         // Atualização otimista: remover a chamada da lista local imediatamente
         setLocalCalls(prev => prev.filter(c => c.id !== callId));
         // Limpar estados relacionados se necessário
@@ -2556,11 +2540,11 @@ export default function AgentDashboard() {
           setAudioInjecting(false);
         }
       } else {
-        console.error('❌ [Dashboard] Erro ao desligar chamada:', data.message);
+        // Error hanging up call
         alert(`Erro: ${data.message}`);
       }
     } catch (error) {
-      console.error('❌ [Dashboard] Erro ao desligar chamada:', error);
+      // Error hanging up call
       alert('Erro interno ao desligar chamada');
     }
   };
@@ -2569,7 +2553,7 @@ export default function AgentDashboard() {
     // Abrir modal de transferência com a chamada selecionada (somente do ramal do agente)
     const found = filteredCalls.find((c) => c.id === callId);
     if (!found) {
-      console.warn('⚠️ [SECURITY] Transferência bloqueada: chamada não pertence ao ramal do agente', { callId, ramal: agentData?.ramal });
+      // Transfer blocked for security
       showToast('Operação não permitida para este ramal', 'error');
       return;
     }
@@ -2605,7 +2589,7 @@ export default function AgentDashboard() {
 
       const token = localStorage.getItem('agent_token');
       if (!token) {
-        console.warn('⚠️ [Dashboard] Token não encontrado para campanhas');
+        // No token found for campaigns
         return;
       }
 
@@ -2626,14 +2610,14 @@ export default function AgentDashboard() {
           setAgentCampaigns([]);
         }
       } else {
-        console.error('❌ [Dashboard] Erro ao buscar campanhas:', response.status);
+        // Error fetching campaigns
         // Manter dados pré-carregados se houver erro
         if (!preloadedData) {
           setAgentCampaigns([]);
         }
       }
     } catch (error) {
-      console.error('❌ [Dashboard] Erro ao carregar campanhas:', error);
+      // Error loading campaigns
       // Manter dados pré-carregados se houver erro
       const preloadedData = localStorage.getItem('agent_campaigns_preloaded');
       if (!preloadedData) {
@@ -2706,9 +2690,9 @@ export default function AgentDashboard() {
           void ensureAutoQueueReplenish();
         }
       }, 2000);
-      console.log(`🤖 [AutoDialer] Iniciando campanha automática: ${campaign.name} (ativa=${autoDialerContactsRef.current.length}, memória=${autoMemoryBufferRef.current.length})`);
+      // Starting automatic campaign
     } catch (error) {
-      console.error('❌ [AutoDialer] Erro ao iniciar campanha automática:', error);
+      // Error starting automatic campaign
       showToast('Erro ao iniciar campanha automática', 'error');
     } finally {
       setAutoStarting(false);
@@ -2726,7 +2710,7 @@ const pauseAutoDialer = () => {
     clearInterval(autoReplenishTimerRef.current);
     autoReplenishTimerRef.current = null;
   }
-  console.log('⏸️ [AutoDialer] Pausado');
+  // AutoDialer paused
 };
 
 const resumeAutoDialer = () => {
@@ -2734,7 +2718,7 @@ const resumeAutoDialer = () => {
   
   setAutoDialerPaused(false);
   autoDialerPausedRef.current = false;
-  console.log('▶️ [AutoDialer] Retomando discagem automática');
+  // AutoDialer resuming
   // Reiniciar reabastecimento em background
   if (autoReplenishTimerRef.current) {
     clearInterval(autoReplenishTimerRef.current);

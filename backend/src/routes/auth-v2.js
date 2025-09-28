@@ -11,13 +11,21 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
-const axios = require('axios');
 const User = require('../models/User');
 const cacheService = require('../services/cacheService');
 const { sanitizeUserOutput } = require('../utils/sanitize');
 const { supabase } = require('../config/database');
 
 const router = express.Router();
+
+function getClientIp(req) {
+  const header = req.headers['x-forwarded-for'];
+  const raw = (Array.isArray(header) ? header[0] : header)?.split(',')[0]?.trim() || req.ip || '';
+  if (!raw) return null;
+  if (raw === '::1') return '127.0.0.1';
+  if (raw.startsWith('::ffff:')) return raw.replace('::ffff:', '');
+  return raw;
+}
 
 // Util: normaliza CPF/CNPJ (mantém apenas dígitos)
 function normalizeCpfCnpj(value) {
@@ -83,7 +91,7 @@ const registerValidation = [
 router.post('/login', authLimiter, loginValidation, async (req, res) => {
   try {
     console.log('🔐 [Auth V2] Tentativa de login...');
-    const clientIp = (req.headers['x-forwarded-for']?.split(',')[0] || '').trim() || req.ip;
+    const clientIp = getClientIp(req);
 
     // Verificar erros de validação
     const errors = validationResult(req);
@@ -95,44 +103,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
       });
     }
 
-    const { email, password, turnstileToken } = req.body;
-
-    // ================================
-    // Cloudflare Turnstile validation
-    // ================================
-    try {
-      const secret = process.env.TURNSTILE_SECRET_KEY;
-      if (!secret) {
-        console.warn('⚠️ TURNSTILE_SECRET_KEY não configurada. Pulando verificação (ambiente de dev?).');
-      } else {
-        if (!turnstileToken) {
-          return res.status(400).json({ success: false, message: 'Verificação humana obrigatória (captcha ausente).', code: 'TURNSTILE_MISSING' });
-        }
-
-        const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-        const remoteip = (req.headers['x-forwarded-for']?.split(',')[0] || '').trim() || req.ip;
-        const form = new URLSearchParams();
-        form.append('secret', secret);
-        form.append('response', turnstileToken);
-        if (remoteip) form.append('remoteip', remoteip);
-
-        const { data: verify } = await axios.post(verifyUrl, form.toString(), {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
-
-        if (!verify?.success) {
-          return res.status(400).json({
-            success: false,
-            message: 'Falha na verificação humana. Tente novamente.',
-            code: 'TURNSTILE_FAILED',
-            errors: verify?.['error-codes'] || []
-          });
-        }
-      }
-    } catch (tsErr) {
-      console.error('❌ Erro ao validar Turnstile (login):', tsErr?.message || tsErr);
-      return res.status(400).json({ success: false, message: 'Falha na validação do captcha.', code: 'TURNSTILE_ERROR' });
-    }
+    const { email, password } = req.body;
 
     console.log(`🔍 Buscando usuário: ${email}`);
 
@@ -633,7 +604,9 @@ router.post('/register', registerLimiter, registerValidation, async (req, res) =
       });
     }
 
-    const { name, email, password, phone, cpfCnpj, referral, turnstileToken } = req.body;
+    const { name, email, password, phone, cpfCnpj, referral } = req.body;
+    const defaultPlanId = process.env.NEXT_PUBLIC_PLAN_ID ? String(process.env.NEXT_PUBLIC_PLAN_ID).trim() : null;
+    const clientIp = getClientIp(req);
 
     // ================================
     // Cloudflare Turnstile validation - TEMPORARIAMENTE DESABILITADO
@@ -711,7 +684,10 @@ router.post('/register', registerLimiter, registerValidation, async (req, res) =
         max_concurrent_calls: 0,
         timezone: 'America/Sao_Paulo',
         language: 'pt-BR',
-        metadata
+        metadata,
+        plan_id: defaultPlanId || null,
+        plan_status: defaultPlanId ? true : null,
+        ip_cadastro: clientIp
       })
       .select('*')
       .single();
@@ -721,7 +697,29 @@ router.post('/register', registerLimiter, registerValidation, async (req, res) =
       return res.status(400).json({ success: false, message: 'Não foi possível criar o usuário', error: insErr.message });
     }
 
-    const user = new User(created);
+    let user = new User(created);
+
+    if (defaultPlanId) {
+      try {
+        await supabase.rpc('activate_user_plan', {
+          user_id: user.id,
+          new_plan_id: defaultPlanId,
+          activation_date: new Date().toISOString()
+        });
+
+        const { data: refreshed, error: refreshErr } = await supabase
+          .from('users_pabx')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (!refreshErr && refreshed) {
+          user = new User(refreshed);
+        }
+      } catch (planErr) {
+        console.error('⚠️ Falha ao vincular plano padrão no cadastro:', planErr?.message || planErr);
+      }
+    }
 
     // Token
     const token = jwt.sign(
@@ -737,7 +735,7 @@ router.post('/register', registerLimiter, registerValidation, async (req, res) =
       email: user.email,
       role: user.role,
       loginAt: new Date().toISOString(),
-      ip: req.ip,
+      ip: clientIp,
       userAgent: req.get('User-Agent')
     }, 24 * 60 * 60);
 

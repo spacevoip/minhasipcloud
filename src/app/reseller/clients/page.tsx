@@ -270,7 +270,7 @@ export default function ResellerClientsPage() {
   const loadResellerData = async (forceRefresh = false) => {
     // Evitar múltiplas chamadas simultâneas (exceto se forçado)
     if (isLoading && !forceRefresh) {
-      console.log('⚠️ loadResellerData já está executando, ignorando chamada duplicada');
+      // LoadResellerData already running, skipping duplicate call
       return;
     }
     
@@ -279,7 +279,7 @@ export default function ResellerClientsPage() {
       const currentUser = userService.getCurrentUser();
       
       if (!currentUser || currentUser.role !== 'reseller') {
-        console.log('⚠️ Usuário não é revendedor');
+        // User is not a reseller
         return;
       }
 
@@ -289,9 +289,9 @@ export default function ResellerClientsPage() {
       try {
         const resellerData = await userService.getCurrentUserData();
         setResellerBalance(resellerData?.credits || 0);
-        console.log(`💰 Saldo do revendedor: R$ ${resellerData?.credits || 0}`);
+        // Reseller balance loaded
       } catch (balanceError) {
-        console.error('⚠️ Erro ao carregar saldo do revendedor:', balanceError);
+        // Error loading reseller balance
         setResellerBalance(0);
       }
 
@@ -301,11 +301,11 @@ export default function ResellerClientsPage() {
 
       // Carregar planos reais do revendedor usando o mesmo método da página de planos
       try {
-        console.log('🔄 Carregando planos reais do revendedor...');
+        // Loading real reseller plans
         const { secureSupabaseService } = await import('@/services/secureSupabaseService');
         const resellerPlansFromAPI = await secureSupabaseService.getPlansByReseller(currentUser.id);
         
-        console.log(`🔍 Encontrados ${resellerPlansFromAPI.length} planos do revendedor ${currentUser.id}`);
+        // Found reseller plans
         
         setRealPlans(resellerPlansFromAPI);
         
@@ -317,10 +317,10 @@ export default function ResellerClientsPage() {
           }));
         }
         
-        console.log(`✅ Planos reais carregados: ${resellerPlansFromAPI.length} planos disponíveis para o revendedor`);
+        // Real plans loaded successfully
         
       } catch (plansError) {
-        console.error('❌ Erro ao carregar planos reais, usando fallback:', plansError);
+        // Error loading real plans, using fallback
         
         // Fallback: usar planos do store se disponíveis
         if (resellerPlans.length > 0) {
@@ -333,11 +333,11 @@ export default function ResellerClientsPage() {
             }));
           }
           
-          console.log(`✅ Fallback: usando ${resellerPlans.length} planos do store`);
+          // Fallback: using store plans
         } else {
           // Se não há planos no store, tentar buscar diretamente via secureSupabaseService
           try {
-            console.log('🔄 Fallback: buscando planos via secureSupabaseService...');
+            // Fallback: fetching plans via secureSupabaseService
             const { secureSupabaseService } = await import('@/services/secureSupabaseService');
             const resellerSpecificPlans = await secureSupabaseService.getPlansByReseller(currentUser.id);
             setRealPlans(resellerSpecificPlans);
@@ -349,24 +349,23 @@ export default function ResellerClientsPage() {
               }));
             }
             
-            console.log(`✅ Fallback: usando ${resellerSpecificPlans.length} planos específicos do revendedor`);
+            // Fallback: using reseller specific plans
           } catch (resellerPlansError) {
-            console.error('❌ Erro ao carregar planos do revendedor:', resellerPlansError);
+            // Error loading reseller plans
             setRealPlans([]);
-            console.log('⚠️ Nenhum plano encontrado para este revendedor');
+            // No plans found for this reseller
           }
         }
       }
 
-      console.log(`✅ Dados carregados com sucesso: ${clients.length} clientes, ${realPlans.length} planos`);
-      console.log('🔄 loadResellerData concluído - evitando loops futuros');
+      // Data loaded successfully
 
     } catch (error) {
-      console.error('❌ Erro ao carregar dados do revendedor:', error);
+      // Error loading reseller data
       showError('Erro', 'Erro ao carregar dados. Usando dados mock.');
     } finally {
       setIsLoading(false);
-      console.log('✅ loadResellerData finalizado - isLoading = false');
+      // LoadResellerData finished
     }
   };
 
@@ -376,7 +375,7 @@ export default function ResellerClientsPage() {
     
     // 🚀 ATUALIZAÇÃO AUTOMÁTICA - Recarregar dados a cada 30 segundos
     const interval = setInterval(() => {
-      console.log('🔄 Atualização automática de dados...');
+      // Automatic data update
       loadResellerData(true); // Forçar refresh
     }, 30000); // 30 segundos
     
@@ -386,7 +385,7 @@ export default function ResellerClientsPage() {
   // 🔄 RECARREGAR AO FOCAR NA PÁGINA (quando usuário volta à aba)
   useEffect(() => {
     const handleFocus = () => {
-      console.log('👁️ Página focada - recarregando dados...');
+      // Page focused - reloading data
       loadResellerData(true);
     };
     
@@ -541,7 +540,7 @@ export default function ResellerClientsPage() {
 
     try {
       setIsLoading(true);
-      console.log('🔄 Criando cliente com API real:', newClientData);
+      // Creating client with real API
 
       // Buscar ID do plano selecionado
       const selectedPlan = realPlans.find(p => p.id === newClientData.plan || p.name === newClientData.plan);
@@ -560,7 +559,7 @@ export default function ResellerClientsPage() {
         address: newClientData.address
       });
 
-      console.log('✅ Cliente criado com sucesso, recarregando dados...');
+      // Client created successfully, reloading data
       
       // Recarregar dados completos do revendedor (clientes + estatísticas)
       await loadResellerData();
@@ -581,7 +580,7 @@ export default function ResellerClientsPage() {
       setShowNewClientModal(false);
 
     } catch (error) {
-      console.error('❌ Erro ao criar cliente:', error);
+      // Error creating client
       showError('Erro ao criar cliente', error instanceof Error ? error.message : 'Tente novamente em alguns instantes');
     } finally {
       setIsLoading(false);
@@ -621,7 +620,7 @@ export default function ResellerClientsPage() {
       setShowStatusModal(false);
       setSelectedClient(null);
     } catch (error) {
-      console.error('Erro ao alterar status do cliente:', error);
+      // Error changing client status
       showError('Erro ao alterar status do cliente');
     } finally {
       setIsLoading(false);
@@ -629,24 +628,23 @@ export default function ResellerClientsPage() {
   };
 
   const handleEditClient = (client: any) => {
-    console.log('🔧 Editando cliente:', client);
-    console.log('📋 Planos disponíveis:', realPlans);
+    // Editing client with available plans
     
     // Determinar o plano correto - priorizar plan_id, depois plan_name, depois plan
     let currentPlan = '';
     if (client.plan_id) {
       // Se tem plan_id, usar ele diretamente
       currentPlan = client.plan_id;
-      console.log('✅ Usando plan_id:', currentPlan);
+      // Using plan_id
     } else if (client.plan_name) {
       // Se tem plan_name, buscar o ID correspondente
       const planFound = realPlans.find(p => p.name === client.plan_name);
       currentPlan = planFound ? planFound.id : client.plan_name;
-      console.log('✅ Usando plan_name, encontrado ID:', currentPlan);
+      // Using plan_name, found ID
     } else {
       // Fallback para plan
       currentPlan = client.plan || '';
-      console.log('⚠️ Usando fallback plan:', currentPlan);
+      // Using fallback plan
     }
     
     setSelectedClient(client);
@@ -687,7 +685,7 @@ export default function ResellerClientsPage() {
         plan_id: editClientData.plan
       });
       
-      console.log('✅ Cliente atualizado com sucesso, recarregando dados...');
+      // Client updated successfully, reloading data
       
       // Recarregar dados completos do revendedor (clientes + estatísticas)
       await loadResellerData();
@@ -696,7 +694,7 @@ export default function ResellerClientsPage() {
       setShowEditClientModal(false);
       setSelectedClient(null);
     } catch (error) {
-      console.error('❌ Erro ao atualizar cliente:', error);
+      // Error updating client
       showError('Erro ao atualizar cliente', error instanceof Error ? error.message : 'Tente novamente em alguns instantes');
       
       // Fallback para store mock
@@ -705,7 +703,7 @@ export default function ResellerClientsPage() {
         success('Cliente atualizado (mock)!', `${editClientData.company} foi atualizado com sucesso`);
         setShowEditClientModal(false);
       } catch (fallbackError) {
-        console.error('❌ Erro no fallback mock:', fallbackError);
+        // Error in mock fallback
       }
     } finally {
       setIsLoading(false);
@@ -736,7 +734,7 @@ export default function ResellerClientsPage() {
       // Excluir cliente usando API real
       await clientsService.deleteClient(selectedClient.id);
       
-      console.log(' Cliente excluído com sucesso, recarregando dados...');
+      // Client deleted successfully, reloading data
       
       // Recarregar dados completos do revendedor (clientes + estatísticas)
       await loadResellerData();
@@ -744,7 +742,7 @@ export default function ResellerClientsPage() {
       success('Cliente excluído!', `${selectedClient.company} foi removido do sistema`);
       setShowDeleteConfirm(false);
     } catch (fallbackError) {
-      console.error('❌ Erro no fallback mock:', fallbackError);
+      // Error in mock fallback
     }
   } finally {
     setIsLoading(false);

@@ -38,17 +38,10 @@ export default function AgentSettings() {
 
   const loadAgentData = async () => {
     try {
-      console.log('🔄 [Settings] Carregando dados do agente...');
-      
       const result = await agentAuthService.getCurrentAgent();
-      console.log('📋 [Settings] Resultado getCurrentAgent:', result);
       
       if (result.success && result.data) {
-        console.log('✅ [Settings] Dados do agente carregados:', {
-          nome: result.data.agente_name,
-          ramal: result.data.ramal,
-          id: result.data.id
-        });
+        // Agent data loaded successfully
         
         setAgentData(result.data);
         setFormData({ caller_id: result.data.callerid || '' });
@@ -57,25 +50,23 @@ export default function AgentSettings() {
         if (result.data.ramal) {
           await loadAgentWithStatus(result.data.ramal);
         } else {
-          console.warn('⚠️ [Settings] Ramal não encontrado nos dados do agente');
+          // No extension found for agent
         }
       } else {
-        console.log('⚠️ [Settings] Tentando dados armazenados...');
         const storedData = agentAuthService.getStoredAgentData();
-        console.log('💾 [Settings] Dados armazenados:', storedData);
         
         if (storedData && storedData.ramal) {
           setAgentData(storedData);
           setFormData({ caller_id: storedData.callerid || '' });
           await loadAgentWithStatus(storedData.ramal);
         } else {
-          console.error('❌ [Settings] Nenhum dado válido encontrado');
+          // No valid agent data found
           router.push('/login');
           return;
         }
       }
     } catch (error) {
-      console.error('Error loading agent data:', error);
+      // Error loading agent data
       router.push('/login');
     } finally {
       setLoading(false);
@@ -85,17 +76,17 @@ export default function AgentSettings() {
   const loadAgentWithStatus = async (ramal: string) => {
     try {
       if (!ramal || ramal === 'undefined') {
-        console.warn('⚠️ [Settings] Ramal inválido:', ramal);
+        // Invalid extension
         return;
       }
 
       const token = localStorage.getItem('agent_token');
       if (!token) {
-        console.warn('⚠️ [Settings] Token não encontrado');
+        // No token found
         return;
       }
 
-      console.log('🔍 [Settings] Buscando status do ramal:', ramal);
+      // Fetching extension status
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/agents/ramal/${ramal}`, {
         headers: {
@@ -109,13 +100,13 @@ export default function AgentSettings() {
         if (data.success && data.data) {
           // Update extension status from backend
           setExtensionStatus(data.data.liveStatus === 'online' ? 'online' : 'offline');
-          console.log('✅ [Settings] Status SIP atualizado:', data.data.liveStatus);
+          // SIP status updated
         }
       } else {
-        console.error('❌ [Settings] Erro na API:', response.status, response.statusText);
+        // API error
       }
     } catch (error) {
-      console.error('Error loading agent status:', error);
+      // Error loading agent status
     }
   };
 
@@ -149,7 +140,7 @@ export default function AgentSettings() {
         alert('Erro ao atualizar Caller ID');
       }
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      // Error saving
       alert('Erro ao salvar alterações');
     } finally {
       setSaving(false);
@@ -214,7 +205,7 @@ export default function AgentSettings() {
         alert(errorData.message || 'Erro ao alterar senha');
       }
     } catch (error) {
-      console.error('Erro ao alterar senha:', error);
+      // Error changing password
       alert('Erro ao alterar senha');
     } finally {
       setPasswordLoading(false);
